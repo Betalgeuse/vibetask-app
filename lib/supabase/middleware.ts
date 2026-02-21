@@ -28,7 +28,17 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  const { pathname } = request.nextUrl;
+  const { pathname, searchParams } = request.nextUrl;
+
+  // Some OAuth flows can return to "/" with ?code=... in production.
+  // Force that through our callback route so the session cookie is exchanged.
+  if (pathname === "/" && searchParams.get("code")) {
+    const callbackUrl = request.nextUrl.clone();
+    callbackUrl.pathname = "/auth/callback";
+    callbackUrl.searchParams.set("next", "/loggedin");
+    return NextResponse.redirect(callbackUrl);
+  }
+
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {

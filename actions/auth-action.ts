@@ -8,13 +8,14 @@ function getOriginFromHeaders() {
   const headerList = headers();
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
   const protocol = headerList.get("x-forwarded-proto") ?? "http";
+  const normalize = (value: string) => value.replace(/\/+$/, "");
 
   if (process.env.NEXT_PUBLIC_SITE_URL) {
-    return process.env.NEXT_PUBLIC_SITE_URL;
+    return normalize(process.env.NEXT_PUBLIC_SITE_URL);
   }
 
   if (host) {
-    return `${protocol}://${host}`;
+    return normalize(`${protocol}://${host}`);
   }
 
   return "http://localhost:3000";
