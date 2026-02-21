@@ -1,4 +1,4 @@
-import { Doc } from "@/convex/_generated/dataModel";
+import { Doc } from "@/lib/supabase/types";
 import {
   DialogContent,
   DialogDescription,
@@ -10,13 +10,12 @@ import { Button } from "../ui/button";
 import { Label } from "../ui/label";
 import { Calendar, ChevronDown, Flag, Hash, Tag, Trash2 } from "lucide-react";
 import { format } from "date-fns";
-import { useMutation, useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { useMutation, useQuery } from "@/lib/supabase/hooks";
+import { api } from "@/lib/supabase/api";
 import { useEffect, useState } from "react";
 import Task from "../todos/task";
 import { AddTaskWrapper } from "./add-task-button";
 import SuggestMissingTasks from "./suggest-tasks";
-import { deleteATodo } from "@/convex/todos";
 import { useToast } from "../ui/use-toast";
 
 export default function AddTaskDialog({ data }: { data: Doc<"todos"> }) {

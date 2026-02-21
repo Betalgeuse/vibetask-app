@@ -4,13 +4,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { api } from "@/convex/_generated/api";
-import { useAction } from "convex/react";
+import { api } from "@/lib/supabase/api";
+import { useAction } from "@/lib/supabase/hooks";
 import { EllipsisIcon, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { useToast } from "../ui/use-toast";
-import { Id } from "@/convex/_generated/dataModel";
+import { Id } from "@/lib/supabase/types";
 
 export default function DeleteProject({
   projectId,

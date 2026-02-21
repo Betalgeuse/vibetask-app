@@ -1,8 +1,8 @@
 import React from "react";
 import Task from "./task";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { Doc } from "@/convex/_generated/dataModel";
+import { useMutation } from "@/lib/supabase/hooks";
+import { api } from "@/lib/supabase/api";
+import { Doc } from "@/lib/supabase/types";
 import { useToast } from "../ui/use-toast";
 
 export default function Todos({ items }: { items: Array<Doc<"todos">> }) {

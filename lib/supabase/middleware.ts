@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
 function getRequiredEnv(name: string) {
@@ -28,57 +28,52 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  const supabase = createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: "",
-            ...options,
-          });
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          });
-          response.cookies.set({
-            name,
-            value: "",
-            ...options,
-          });
-        },
-      },
-    }
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const { pathname } = request.nextUrl;
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => {
+          request.cookies.set({ name, value });
+        });
+
+        response = NextResponse.next({
+          request: {
+            headers: request.headers,
+          },
+        });
+
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set({
+            name,
+            value,
+            ...options,
+          });
+        });
+      },
+    },
+  });
+
+  let user = null;
+  try {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+    user = authUser;
+  } catch (error) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/";
+
+    if (pathname.startsWith("/loggedin")) {
+      redirectUrl.searchParams.set("error", "Please sign in again.");
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    console.error("Failed to read Supabase user from session cookies:", error);
+    return response;
+  }
 
   if (!user && pathname.startsWith("/loggedin")) {
     const redirectUrl = request.nextUrl.clone();

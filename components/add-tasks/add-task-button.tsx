@@ -1,7 +1,7 @@
 import { Plus } from "lucide-react";
 import React, { Dispatch, SetStateAction, useState } from "react";
 import AddTaskInline from "./add-task-inline";
-import { Doc, Id } from "@/convex/_generated/dataModel";
+import { Doc, Id } from "@/lib/supabase/types";
 
 export const AddTaskWrapper = ({
   parentTask,

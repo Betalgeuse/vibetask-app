@@ -6,9 +6,9 @@ import SideBar from "@/components/nav/side-bar";
 import DeleteProject from "@/components/projects/delete-project";
 import CompletedTodos from "@/components/todos/completed-todos";
 import Todos from "@/components/todos/todos";
-import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { api } from "@/lib/supabase/api";
+import { useQuery } from "@/lib/supabase/hooks";
+import { Id } from "@/lib/supabase/types";
 import { useParams } from "next/navigation";
 
 export default function ProjectIdPage() {

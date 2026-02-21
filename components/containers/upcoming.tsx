@@ -1,13 +1,15 @@
 "use client";
-import { api } from "@/convex/_generated/api";
-import { useQuery } from "convex/react";
+import { api } from "@/lib/supabase/api";
+import { useQuery } from "@/lib/supabase/hooks";
+import { Doc } from "@/lib/supabase/types";
 import { Dot } from "lucide-react";
 import moment from "moment";
 import { AddTaskWrapper } from "../add-tasks/add-task-button";
 import Todos from "../todos/todos";
 
 export default function Upcoming() {
-  const groupTodosByDate = useQuery(api.todos.groupTodosByDate) ?? [];
+  const groupTodosByDate: Record<string, Array<Doc<"todos">>> =
+    useQuery(api.todos.groupTodosByDate) ?? {};
   const overdueTodos = useQuery(api.todos.overdueTodos) ?? [];
 
   if (groupTodosByDate === undefined || overdueTodos === undefined) {

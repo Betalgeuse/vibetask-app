@@ -1,7 +1,7 @@
-import { api } from "@/convex/_generated/api";
-import { useAction } from "convex/react";
+import { api } from "@/lib/supabase/api";
+import { useAction } from "@/lib/supabase/hooks";
 import React, { useState } from "react";
-import { Id } from "@/convex/_generated/dataModel";
+import { Id } from "@/lib/supabase/types";
 import { Loader } from "lucide-react";
 import { Button } from "../ui/button";
 

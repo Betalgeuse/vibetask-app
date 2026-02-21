@@ -1,8 +1,8 @@
 "use client";
 
-import { api } from "@/convex/_generated/api";
-import { Doc } from "@/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { api } from "@/lib/supabase/api";
+import { useQuery } from "@/lib/supabase/hooks";
+import { Doc } from "@/lib/supabase/types";
 import { AddTaskWrapper } from "../add-tasks/add-task-button";
 import Todos from "../todos/todos";
 

@@ -2,8 +2,8 @@
 import MobileNav from "@/components/nav/mobile-nav";
 import SideBar from "@/components/nav/side-bar";
 import Todos from "@/components/todos/todos";
-import { api } from "@/convex/_generated/api";
-import { useAction } from "convex/react";
+import { api } from "@/lib/supabase/api";
+import { useAction } from "@/lib/supabase/hooks";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 

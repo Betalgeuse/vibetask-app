@@ -1,4 +1,4 @@
-import { Doc } from "@/convex/_generated/dataModel";
+import { Doc } from "@/lib/supabase/types";
 import clsx from "clsx";
 import AddTaskDialog from "../add-tasks/add-task-dialog";
 import { Checkbox } from "../ui/checkbox";

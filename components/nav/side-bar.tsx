@@ -13,12 +13,12 @@ import { primaryNavItems } from "@/utils";
 import UserProfile from "./user-profile";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { api } from "@/convex/_generated/api";
-import { useQuery } from "convex/react";
+import { api } from "@/lib/supabase/api";
+import { useQuery } from "@/lib/supabase/hooks";
 import { useEffect, useState } from "react";
 import { Hash, PlusIcon } from "lucide-react";
-import { Doc } from "@/convex/_generated/dataModel";
-import { Dialog, DialogContent, DialogTrigger } from "../ui/dialog";
+import { Doc } from "@/lib/supabase/types";
+import { Dialog, DialogTrigger } from "../ui/dialog";
 import AddProjectDialog from "../projects/add-project-dialog";
 import AddLabelDialog from "../labels/add-label-dialog";
 
