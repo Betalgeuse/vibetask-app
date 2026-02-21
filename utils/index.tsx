@@ -1,4 +1,4 @@
-import { Calendar, CalendarDays, Grid2X2, Inbox, Tag } from "lucide-react";
+import { Calendar, CalendarDays, Grid2X2, Inbox, Kanban, Tag } from "lucide-react";
 
 export const primaryNavItems = [
   {
@@ -16,6 +16,11 @@ export const primaryNavItems = [
     name: "Upcoming",
     link: "/loggedin/upcoming",
     icon: <CalendarDays className="w-4 h-4" />,
+  },
+  {
+    name: "Kanban",
+    link: "/loggedin/kanban",
+    icon: <Kanban className="w-4 h-4" />,
   },
   {
     name: "Eisenhower Matrix",

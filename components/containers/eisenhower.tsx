@@ -1,52 +1,106 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { api } from "@/lib/supabase/api";
 import { useQuery } from "@/lib/supabase/hooks";
 import { Doc } from "@/lib/supabase/types";
 import { AddTaskWrapper } from "../add-tasks/add-task-button";
+import {
+  EISENHOWER_QUADRANT_META,
+  EisenhowerQuadrantKey,
+  getTodoStoredEisenhowerQuadrant,
+  normalizeEisenhowerQuadrantKey,
+} from "../kanban/metadata";
 import Todos from "../todos/todos";
 
-type EisenhowerQuadrant = "doFirst" | "schedule" | "delegate" | "eliminate";
+type EisenhowerTodos = Record<EisenhowerQuadrantKey, Array<Doc<"todos">>>;
 
-type EisenhowerTodos = Record<EisenhowerQuadrant, Array<Doc<"todos">>>;
-
-const EMPTY_QUADRANTS: EisenhowerTodos = {
+const createEmptyQuadrants = (): EisenhowerTodos => ({
   doFirst: [],
   schedule: [],
   delegate: [],
   eliminate: [],
-};
+});
 
-const QUADRANT_META: Array<{
-  key: EisenhowerQuadrant;
-  title: string;
-  subtitle: string;
-}> = [
-  {
-    key: "doFirst",
-    title: "Do First",
-    subtitle: "Urgent + Important",
-  },
-  {
-    key: "schedule",
-    title: "Schedule",
-    subtitle: "Not Urgent + Important",
-  },
-  {
-    key: "delegate",
-    title: "Delegate",
-    subtitle: "Urgent + Not Important",
-  },
-  {
-    key: "eliminate",
-    title: "Eliminate",
-    subtitle: "Not Urgent + Not Important",
-  },
-];
+function normalizeQuadrantBuckets(quadrants: unknown): EisenhowerTodos {
+  const normalized = createEmptyQuadrants();
+
+  if (!quadrants || typeof quadrants !== "object") {
+    return normalized;
+  }
+
+  Object.entries(quadrants as Record<string, unknown>).forEach(
+    ([rawQuadrantKey, rawTodos]) => {
+      const quadrantKey = normalizeEisenhowerQuadrantKey(rawQuadrantKey);
+
+      if (!quadrantKey || !Array.isArray(rawTodos)) {
+        return;
+      }
+
+      normalized[quadrantKey] = rawTodos as Array<Doc<"todos">>;
+    }
+  );
+
+  return normalized;
+}
+
+function countQuadrantItems(quadrants: EisenhowerTodos) {
+  return Object.values(quadrants).reduce((total, items) => total + items.length, 0);
+}
 
 export default function Eisenhower() {
+  const inCompleteTodosQuery = useQuery(api.todos.inCompleteTodos);
   const quadrantsQuery = useQuery(api.todos.inCompleteTodosByEisenhowerQuadrant);
-  const quadrants = quadrantsQuery ?? EMPTY_QUADRANTS;
+
+  const legacyQuadrants = useMemo(
+    () => normalizeQuadrantBuckets(quadrantsQuery),
+    [quadrantsQuery]
+  );
+
+  const quadrants = useMemo(() => {
+    if (!inCompleteTodosQuery) {
+      return legacyQuadrants;
+    }
+
+    const fallbackQuadrantByTodoId = new Map<string, EisenhowerQuadrantKey>();
+
+    (Object.keys(legacyQuadrants) as Array<EisenhowerQuadrantKey>).forEach(
+      (quadrantKey) => {
+        legacyQuadrants[quadrantKey].forEach((todo) => {
+          fallbackQuadrantByTodoId.set(todo._id, quadrantKey);
+        });
+      }
+    );
+
+    let hasStoredQuadrant = false;
+
+    const groupedByStoredQuadrants = inCompleteTodosQuery.reduce<EisenhowerTodos>(
+      (acc, todo) => {
+        const storedQuadrant = getTodoStoredEisenhowerQuadrant(todo);
+        if (storedQuadrant) {
+          hasStoredQuadrant = true;
+        }
+
+        const resolvedQuadrant =
+          storedQuadrant ?? fallbackQuadrantByTodoId.get(todo._id) ?? "doFirst";
+
+        acc[resolvedQuadrant].push(todo);
+        return acc;
+      },
+      createEmptyQuadrants()
+    );
+
+    const legacyItemCount = countQuadrantItems(legacyQuadrants);
+
+    if (hasStoredQuadrant || legacyItemCount === 0) {
+      return groupedByStoredQuadrants;
+    }
+
+    return legacyQuadrants;
+  }, [inCompleteTodosQuery, legacyQuadrants]);
+
+  const isLoading = inCompleteTodosQuery === undefined && quadrantsQuery === undefined;
 
   return (
     <div className="xl:px-40">
@@ -55,15 +109,13 @@ export default function Eisenhower() {
         <AddTaskWrapper />
       </div>
       <p className="text-sm text-foreground/70 mt-2 mb-4">
-        Grouped by urgency (due today/overdue) and importance (priority 1-2).
+        Grouped by each task&apos;s saved Eisenhower quadrant.
       </p>
 
-      {quadrantsQuery === undefined && (
-        <p className="text-sm text-foreground/60 mb-4">Loading matrix...</p>
-      )}
+      {isLoading && <p className="text-sm text-foreground/60 mb-4">Loading matrix...</p>}
 
       <div className="grid gap-4 md:grid-cols-2">
-        {QUADRANT_META.map(({ key, title, subtitle }) => {
+        {EISENHOWER_QUADRANT_META.map(({ key, title, subtitle }) => {
           const items = quadrants[key];
           return (
             <section
