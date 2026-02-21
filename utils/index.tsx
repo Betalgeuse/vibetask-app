@@ -1,4 +1,12 @@
-import { Calendar, CalendarDays, Grid2X2, Inbox, Kanban, Tag } from "lucide-react";
+import {
+  Calendar,
+  CalendarDays,
+  Grid2X2,
+  Inbox,
+  Kanban,
+  Settings,
+  Tag,
+} from "lucide-react";
 
 export const primaryNavItems = [
   {
@@ -32,5 +40,11 @@ export const primaryNavItems = [
     name: "Filters & Labels",
     link: "/loggedin/filter-labels",
     icon: <Tag className="w-4 h-4" />,
+  },
+  {
+    id: "settings",
+    name: "Settings",
+    link: "/loggedin/settings",
+    icon: <Settings className="w-4 h-4" />,
   },
 ];

@@ -1,3 +1,5 @@
+"use client";
+
 import { Menu } from "lucide-react";
 import Link from "next/link";
 
@@ -14,8 +16,10 @@ import { primaryNavItems } from "@/utils";
 import Image from "next/image";
 import SearchForm from "./search-form";
 import UserProfile from "./user-profile";
+import { api } from "@/lib/supabase/api";
+import { useQuery } from "@/lib/supabase/hooks";
 
-import todovexLogo from "@/public/logo/todovex.svg";
+import dunnitLogo from "@/public/logo/dunnit.svg";
 
 export default function MobileNav({
   navTitle = "",
@@ -24,6 +28,19 @@ export default function MobileNav({
   navTitle?: string;
   navLink?: string;
 }) {
+  const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
+  const optionalItems = featureSettings?.enabledModules?.persona
+    ? [
+        {
+          name: "Personas",
+          link: "/loggedin/personas",
+          icon: <span className="text-xs">🧠</span>,
+        },
+      ]
+    : [];
+
+  const navItems = [...primaryNavItems, ...optionalItems];
+
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
       <Sheet>
@@ -37,7 +54,7 @@ export default function MobileNav({
           <nav className="grid gap-2 text-lg font-medium">
             <UserProfile />
 
-            {primaryNavItems.map(({ name, icon, link }, idx) => (
+            {navItems.map(({ name, icon, link }, idx) => (
               <Link
                 key={idx}
                 href={link}
@@ -82,7 +99,7 @@ export default function MobileNav({
           <SearchForm />
         </div>
         <div className="place-content-center w-12 h-12 lg:w-16 lg:h-20">
-          <Image alt="logo" src={todovexLogo} />
+          <Image alt="logo" src={dunnitLogo} />
         </div>
       </div>
     </header>

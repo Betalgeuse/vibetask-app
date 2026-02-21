@@ -30,10 +30,12 @@ export default function SideBar() {
   const pathname = usePathname();
 
   const projectList = useQuery(api.projects.getProjects);
+  const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
 
   const LIST_OF_TITLE_IDS: MyListTitleType = {
     primary: "",
     projects: "My Projects",
+    productivity: "Productivity",
   };
 
   const [navItems, setNavItems] = useState([...primaryNavItems]);
@@ -51,10 +53,21 @@ export default function SideBar() {
   useEffect(() => {
     if (projectList) {
       const projectItems = renderItems(projectList);
-      const items = [...primaryNavItems, ...projectItems];
+      const optionalItems =
+        featureSettings?.enabledModules?.persona
+          ? [
+              {
+                id: "productivity",
+                name: "Personas",
+                link: "/loggedin/personas",
+                icon: <Hash className="w-4 h-4" />,
+              },
+            ]
+          : [];
+      const items = [...primaryNavItems, ...optionalItems, ...projectItems];
       setNavItems(items);
     }
-  }, [projectList]);
+  }, [featureSettings?.enabledModules?.persona, projectList]);
 
   return (
     <div className="hidden border-r bg-muted/40 md:block">

@@ -1,5 +1,9 @@
 import type { PriorityQuadrant, TodoStatus } from "@/lib/types/priority";
-import type { TaskPayload, TaskModuleKey, WorkflowStatus } from "@/lib/types/task-payload";
+import type {
+  TaskModuleFlags,
+  TaskPayload,
+  WorkflowStatus,
+} from "@/lib/types/task-payload";
 
 export type Id<_TableName extends string = string> = string;
 
@@ -80,7 +84,7 @@ export interface PersonaDoc {
 export interface UserFeatureSettingsDoc {
   _id: Id<"userFeatureSettings">;
   userId: string;
-  enabledModules?: Partial<Record<TaskModuleKey, boolean>>;
+  enabledModules: TaskModuleFlags;
   taskPropertyVisibility?: Record<string, boolean>;
   sidebarModules?: string[];
 }
@@ -98,4 +102,8 @@ interface DocMap {
 export type Doc<T extends keyof DocMap> = DocMap[T];
 
 export type { PriorityQuadrant, TodoStatus } from "@/lib/types/priority";
-export type { WorkflowStatus, TaskPayload, TaskModuleKey } from "@/lib/types/task-payload";
+export type {
+  WorkflowStatus,
+  TaskPayload,
+  TaskModuleFlags,
+} from "@/lib/types/task-payload";

@@ -41,14 +41,25 @@ import {
 } from "@/lib/ai/priority";
 import { suggestPriorityForTask } from "@/lib/ai/suggest-priority";
 import PrioritySuggestionDialog from "./priority-suggestion-dialog";
+import {
+  DEFAULT_TASK_MODULE_FLAGS,
+  WORKFLOW_STATUSES,
+  normalizeWorkflowStatus,
+  type TaskPayload,
+} from "@/lib/types/task-payload";
 
 const FormSchema = z.object({
   taskName: z.string().min(2, {
     message: "Task name must be at least 2 characters.",
   }),
   description: z.string().optional().default(""),
+  story: z.string().optional().default(""),
   dueDate: z.date({ required_error: "A due date is required" }),
   priority: z.string().optional().default(""),
+  workload: z.string().optional().default(""),
+  workflowStatus: z.string().optional().default("BACKLOG"),
+  epicId: z.string().optional().default(""),
+  personaId: z.string().optional().default(""),
   projectId: z.string().min(1, { message: "Please select a Project" }),
   labelId: z.string().min(1, { message: "Please select a Label" }),
 });
@@ -66,10 +77,17 @@ export default function AddTaskInline({
 }) {
   const projects = useQuery(api.projects.getProjects) ?? [];
   const labels = useQuery(api.labels.getLabels) ?? [];
+  const epics = useQuery(api.epics.getEpics) ?? [];
+  const personas = useQuery(api.personas.getPersonas) ?? [];
+  const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
+  const enabledModules =
+    featureSettings?.enabledModules ?? DEFAULT_TASK_MODULE_FLAGS;
 
   const defaultProjectId =
     myProjectId || parentTask?.projectId || projects[0]?._id || "";
   const defaultLabelId = parentTask?.labelId || labels[0]?._id || "";
+  const defaultEpicId = parentTask?.epicId || epics[0]?._id || "";
+  const defaultPersonaId = parentTask?.personaId || personas[0]?._id || "";
   const priority = parentTask?.priority?.toString() || "";
   const parentId = parentTask?._id;
 
@@ -84,7 +102,12 @@ export default function AddTaskInline({
   const defaultValues: AddTaskFormValues = {
     taskName: "",
     description: "",
+    story: parentTask?.story || "",
     priority,
+    workload: parentTask?.workload?.toString() || "",
+    workflowStatus: parentTask?.workflowStatus || "BACKLOG",
+    epicId: defaultEpicId,
+    personaId: defaultPersonaId,
     dueDate: new Date(),
     projectId: defaultProjectId,
     labelId: defaultLabelId,
@@ -117,15 +140,77 @@ export default function AddTaskInline({
     }
   }, [defaultLabelId, form]);
 
+  useEffect(() => {
+    if (!enabledModules.epic) {
+      form.setValue("epicId", "");
+      return;
+    }
+
+    const selectedEpicId = form.getValues("epicId");
+    if (!selectedEpicId && defaultEpicId) {
+      form.setValue("epicId", defaultEpicId);
+    }
+  }, [defaultEpicId, enabledModules.epic, form]);
+
+  useEffect(() => {
+    if (!enabledModules.persona) {
+      form.setValue("personaId", "");
+      return;
+    }
+
+    const selectedPersonaId = form.getValues("personaId");
+    if (!selectedPersonaId && defaultPersonaId) {
+      form.setValue("personaId", defaultPersonaId);
+    }
+  }, [defaultPersonaId, enabledModules.persona, form]);
+
   async function createTaskWithPriority(
     data: AddTaskFormValues,
     resolvedPriority: PriorityQuadrant
   ) {
-    const { taskName, description, dueDate, projectId, labelId } = data;
+    const {
+      taskName,
+      description,
+      story,
+      dueDate,
+      projectId,
+      labelId,
+      epicId,
+      personaId,
+      workload,
+      workflowStatus,
+    } = data;
 
     if (!projectId || !labelId) {
       return;
     }
+
+    const parsedWorkload =
+      enabledModules.workload && workload?.trim()
+        ? Number.parseInt(workload, 10)
+        : undefined;
+    const normalizedWorkload =
+      typeof parsedWorkload === "number" &&
+      Number.isFinite(parsedWorkload) &&
+      parsedWorkload > 0
+        ? parsedWorkload
+        : undefined;
+
+    const normalizedWorkflowStatus = enabledModules.workflowStatus
+      ? normalizeWorkflowStatus(workflowStatus, "BACKLOG")
+      : undefined;
+
+    const payload: TaskPayload = {
+      name: taskName,
+      description: description || undefined,
+      story: enabledModules.story ? story || undefined : undefined,
+      priorityQuadrant: resolvedPriority,
+      dueDate: moment(dueDate).valueOf(),
+      workload: normalizedWorkload,
+      workflowStatus: normalizedWorkflowStatus,
+      epicId: enabledModules.epic ? epicId || undefined : undefined,
+      personaId: enabledModules.persona ? personaId || undefined : undefined,
+    };
 
     setIsSavingTask(true);
 
@@ -135,19 +220,43 @@ export default function AddTaskInline({
           parentId,
           taskName,
           description,
+          story: enabledModules.story ? story || undefined : undefined,
           priority: resolvedPriority,
+          workflowStatus: normalizedWorkflowStatus,
+          workload: normalizedWorkload,
+          epicId:
+            enabledModules.epic && epicId
+              ? (epicId as Id<"epics">)
+              : undefined,
+          personaId:
+            enabledModules.persona && personaId
+              ? (personaId as Id<"personas">)
+              : undefined,
           dueDate: moment(dueDate).valueOf(),
           projectId: projectId as Id<"projects">,
           labelId: labelId as Id<"labels">,
+          payload,
         });
       } else {
         await createTodoEmbeddings({
           taskName,
           description,
+          story: enabledModules.story ? story || undefined : undefined,
           priority: resolvedPriority,
+          workflowStatus: normalizedWorkflowStatus,
+          workload: normalizedWorkload,
+          epicId:
+            enabledModules.epic && epicId
+              ? (epicId as Id<"epics">)
+              : undefined,
+          personaId:
+            enabledModules.persona && personaId
+              ? (personaId as Id<"personas">)
+              : undefined,
           dueDate: moment(dueDate).valueOf(),
           projectId: projectId as Id<"projects">,
           labelId: labelId as Id<"labels">,
+          payload,
         });
       }
 
@@ -292,6 +401,24 @@ export default function AddTaskInline({
               </FormItem>
             )}
           />
+          {enabledModules.story && (
+            <FormField
+              control={form.control}
+              name="story"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Textarea
+                      id="story"
+                      placeholder="Story / context (optional)"
+                      className="resize-none min-h-20"
+                      {...field}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          )}
           <div className="flex gap-2">
             <FormField
               control={form.control}
@@ -411,6 +538,126 @@ export default function AddTaskInline({
               </FormItem>
             )}
           />
+          {(enabledModules.persona ||
+            enabledModules.epic ||
+            enabledModules.workload ||
+            enabledModules.workflowStatus) && (
+            <div className="grid gap-2 md:grid-cols-2">
+              {enabledModules.persona && (
+                <FormField
+                  control={form.control}
+                  name="personaId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <Select
+                        onValueChange={(value) =>
+                          field.onChange(value === "none" ? "" : value)
+                        }
+                        value={field.value?.trim() ? field.value : "none"}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Persona (optional)" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {personas.map((persona) => (
+                            <SelectItem key={persona._id} value={persona._id}>
+                              {persona.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {enabledModules.epic && (
+                <FormField
+                  control={form.control}
+                  name="epicId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <Select
+                        onValueChange={(value) =>
+                          field.onChange(value === "none" ? "" : value)
+                        }
+                        value={field.value?.trim() ? field.value : "none"}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Epic (optional)" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {epics.map((epic) => (
+                            <SelectItem key={epic._id} value={epic._id}>
+                              {epic.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {enabledModules.workload && (
+                <FormField
+                  control={form.control}
+                  name="workload"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={100}
+                          placeholder="Workload (1-100)"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {enabledModules.workflowStatus && (
+                <FormField
+                  control={form.control}
+                  name="workflowStatus"
+                  render={({ field }) => (
+                    <FormItem>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value || "BACKLOG"}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Workflow status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {WORKFLOW_STATUSES.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status.replaceAll("_", " ")}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+            </div>
+          )}
           <CardFooter className="flex flex-col lg:flex-row lg:justify-between gap-2 border-t-2 pt-3">
             <div className="w-full lg:w-1/4"></div>
             <div className="flex gap-3 self-end">

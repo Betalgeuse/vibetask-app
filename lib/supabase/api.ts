@@ -12,11 +12,24 @@ import {
   type TodoStatus,
 } from "@/lib/types/priority";
 import {
+  DEFAULT_TASK_MODULE_FLAGS,
   normalizeWorkflowStatus,
+  normalizeTaskModuleFlags,
+  type TaskModuleFlags,
   type TaskPayload,
   type WorkflowStatus,
 } from "@/lib/types/task-payload";
-import { Doc, Id, LabelDoc, ProjectDoc, SubTodoDoc, TodoDoc } from "./types";
+import {
+  Doc,
+  EpicDoc,
+  Id,
+  LabelDoc,
+  PersonaDoc,
+  ProjectDoc,
+  SubTodoDoc,
+  TodoDoc,
+  UserFeatureSettingsDoc,
+} from "./types";
 import type { User } from "@supabase/supabase-js";
 
 type TodoRow = {
@@ -74,6 +87,29 @@ type LabelRow = {
   user_id: string | null;
   name: string;
   type: "user" | "system";
+};
+
+type EpicRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+};
+
+type PersonaRow = {
+  id: string;
+  user_id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  type: "user";
+};
+
+type UserFeatureSettingsRow = {
+  user_id: string;
+  enabled_modules: Record<string, unknown> | null;
+  task_property_visibility: Record<string, unknown> | null;
+  sidebar_modules: unknown[] | null;
 };
 
 type EisenhowerTodos = Record<PriorityQuadrant, Array<Doc<"todos">>>;
@@ -206,6 +242,56 @@ function toLabelDoc(row: LabelRow): LabelDoc {
   };
 }
 
+function toEpicDoc(row: EpicRow): EpicDoc {
+  return {
+    _id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    description: row.description ?? undefined,
+  };
+}
+
+function toPersonaDoc(row: PersonaRow): PersonaDoc {
+  return {
+    _id: row.id,
+    userId: row.user_id,
+    code: row.code,
+    name: row.name,
+    description: row.description ?? undefined,
+    type: "user",
+  };
+}
+
+function toUserFeatureSettingsDoc(
+  row: UserFeatureSettingsRow
+): UserFeatureSettingsDoc {
+  const taskPropertyVisibility =
+    row.task_property_visibility &&
+    typeof row.task_property_visibility === "object"
+      ? Object.entries(row.task_property_visibility).reduce<
+          Record<string, boolean>
+        >((acc, [key, value]) => {
+          if (typeof value === "boolean") {
+            acc[key] = value;
+          }
+          return acc;
+        }, {})
+      : undefined;
+
+  return {
+    _id: row.user_id,
+    userId: row.user_id,
+    enabledModules: normalizeTaskModuleFlags(row.enabled_modules),
+    taskPropertyVisibility,
+    sidebarModules: Array.isArray(row.sidebar_modules)
+      ? row.sidebar_modules
+          .filter((value): value is string => typeof value === "string")
+          .map((value) => value.trim())
+          .filter(Boolean)
+      : undefined,
+  };
+}
+
 supabase.auth.onAuthStateChange((_event, session) => {
   cachedUser = session?.user ?? null;
   hasCachedUser = true;
@@ -305,6 +391,55 @@ async function ensureDefaultProjectAndLabel() {
   } finally {
     ensureDefaultsInFlight = null;
   }
+}
+
+async function ensureUserFeatureSettings() {
+  const { supabase, user } = await getSupabaseAndUser();
+  if (!user) return null;
+
+  const { data: current, error: currentError } = await supabase
+    .from("user_feature_settings")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (currentError) throw currentError;
+  if (current) {
+    return current as UserFeatureSettingsRow;
+  }
+
+  const { data: created, error: createError } = await supabase
+    .from("user_feature_settings")
+    .insert({
+      user_id: user.id,
+      enabled_modules: DEFAULT_TASK_MODULE_FLAGS,
+      task_property_visibility: {
+        persona: false,
+        epic: false,
+        name: true,
+        description: true,
+        story: false,
+        priority: true,
+        workload: false,
+        dueDate: true,
+        workflowStatus: true,
+      },
+      sidebar_modules: [],
+    })
+    .select("*")
+    .single();
+
+  if (createError) throw createError;
+  return created as UserFeatureSettingsRow;
+}
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 50);
 }
 
 async function listAllTodosForUser(userId: string) {
@@ -483,6 +618,145 @@ export const api = {
     },
   },
 
+  epics: {
+    async getEpics() {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return [] as EpicDoc[];
+
+      const { data, error } = await supabase
+        .from("epics")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return ((data ?? []) as EpicRow[]).map(toEpicDoc);
+    },
+
+    async createAnEpic({
+      name,
+      description,
+    }: {
+      name: string;
+      description?: string;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+
+      const { data, error } = await supabase
+        .from("epics")
+        .insert({
+          user_id: user.id,
+          name: name.trim(),
+          description: description?.trim() || null,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return data?.id ?? null;
+    },
+  },
+
+  personas: {
+    async getPersonas() {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return [] as PersonaDoc[];
+
+      const { data, error } = await supabase
+        .from("personas")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return ((data ?? []) as PersonaRow[]).map(toPersonaDoc);
+    },
+
+    async createAPersona({
+      name,
+      description,
+    }: {
+      name: string;
+      description?: string;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+
+      const trimmedName = name.trim();
+      if (!trimmedName) return null;
+
+      const codeBase = slugify(trimmedName) || "persona";
+      const randomSuffix = Math.random().toString(36).slice(2, 7);
+      const code = `${codeBase}_${randomSuffix}`;
+
+      const { data, error } = await supabase
+        .from("personas")
+        .insert({
+          user_id: user.id,
+          code,
+          name: trimmedName,
+          description: description?.trim() || null,
+          type: "user",
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return data?.id ?? null;
+    },
+  },
+
+  userFeatureSettings: {
+    async getMySettings() {
+      const row = await ensureUserFeatureSettings();
+      if (!row) return null;
+      return toUserFeatureSettingsDoc(row);
+    },
+
+    async upsertMySettings({
+      enabledModules,
+      taskPropertyVisibility,
+      sidebarModules,
+    }: {
+      enabledModules?: Partial<TaskModuleFlags>;
+      taskPropertyVisibility?: Record<string, boolean>;
+      sidebarModules?: string[];
+    }) {
+      const existingRow = await ensureUserFeatureSettings();
+      if (!existingRow) return null;
+
+      const existingDoc = toUserFeatureSettingsDoc(existingRow);
+      const mergedModules = normalizeTaskModuleFlags({
+        ...existingDoc.enabledModules,
+        ...(enabledModules ?? {}),
+      });
+
+      const mergedTaskPropertyVisibility = {
+        ...(existingDoc.taskPropertyVisibility ?? {}),
+        ...(taskPropertyVisibility ?? {}),
+      };
+
+      const nextSidebarModules =
+        sidebarModules ??
+        existingDoc.sidebarModules ??
+        (mergedModules.persona ? ["personas"] : []);
+
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+
+      const { data, error } = await supabase
+        .from("user_feature_settings")
+        .update({
+          enabled_modules: mergedModules,
+          task_property_visibility: mergedTaskPropertyVisibility,
+          sidebar_modules: nextSidebarModules,
+        })
+        .eq("user_id", user.id)
+        .select("*")
+        .single();
+
+      if (error) throw error;
+      return toUserFeatureSettingsDoc(data as UserFeatureSettingsRow);
+    },
+  },
+
   todos: {
     async get() {
       const { user } = await getSupabaseAndUser();
@@ -651,6 +925,7 @@ export const api = {
         .from("todos")
         .update({
           status: "DONE",
+          workflow_status: "DONE",
           is_completed: true,
         })
         .eq("id", taskId)
@@ -669,6 +944,7 @@ export const api = {
         .from("todos")
         .update({
           status: "TODO",
+          workflow_status: "BACKLOG",
           is_completed: false,
         })
         .eq("id", taskId)
@@ -690,10 +966,13 @@ export const api = {
       if (!user) return null;
 
       const normalizedStatus = normalizeTodoStatus(status);
+      const normalizedWorkflowStatus =
+        normalizedStatus === "DONE" ? "DONE" : "BACKLOG";
       const { data, error } = await supabase
         .from("todos")
         .update({
           status: normalizedStatus,
+          workflow_status: normalizedWorkflowStatus,
           is_completed: isDoneStatus(normalizedStatus),
         })
         .eq("id", taskId)
@@ -707,20 +986,32 @@ export const api = {
     async createATodo({
       taskName,
       description,
+      story,
       priority,
       status,
+      workflowStatus,
+      workload,
+      epicId,
+      personaId,
       dueDate,
       projectId,
       labelId,
+      payload,
       embedding,
     }: {
       taskName: string;
       description?: string;
+      story?: string;
       priority: PriorityQuadrant | number;
       status?: TodoStatus;
+      workflowStatus?: WorkflowStatus;
+      workload?: number;
+      epicId?: Id<"epics">;
+      personaId?: Id<"personas">;
       dueDate: number;
       projectId: Id<"projects">;
       labelId: Id<"labels">;
+      payload?: TaskPayload;
       embedding?: number[];
     }) {
       const { supabase, user } = await getSupabaseAndUser();
@@ -728,6 +1019,14 @@ export const api = {
 
       const normalizedPriority = normalizePriorityQuadrant(priority);
       const normalizedStatus = normalizeTodoStatus(status, "TODO");
+      const normalizedWorkflowStatus = normalizeWorkflowStatus(
+        workflowStatus,
+        normalizedStatus === "DONE" ? "DONE" : "BACKLOG"
+      );
+      const normalizedWorkload =
+        typeof workload === "number" && Number.isFinite(workload)
+          ? Math.max(1, Math.min(100, Math.round(workload)))
+          : null;
 
       const { data, error } = await supabase
         .from("todos")
@@ -735,13 +1034,19 @@ export const api = {
           user_id: user.id,
           task_name: taskName,
           description: description ?? null,
+          story: story ?? null,
           priority: QUADRANT_TO_LEGACY_PRIORITY[normalizedPriority],
           priority_quadrant: normalizedPriority,
           status: normalizedStatus,
+          workflow_status: normalizedWorkflowStatus,
+          workload: normalizedWorkload,
+          epic_id: epicId ?? null,
+          persona_id: personaId ?? null,
           due_date: dueDate,
           project_id: projectId,
           label_id: labelId,
           is_completed: isDoneStatus(normalizedStatus),
+          payload: payload ?? {},
           embedding: embedding ?? null,
         })
         .select("id")
@@ -753,28 +1058,46 @@ export const api = {
     async createTodoAndEmbeddings({
       taskName,
       description,
+      story,
       priority,
       status,
+      workflowStatus,
+      workload,
+      epicId,
+      personaId,
       dueDate,
       projectId,
       labelId,
+      payload,
     }: {
       taskName: string;
       description?: string;
+      story?: string;
       priority: PriorityQuadrant | number;
       status?: TodoStatus;
+      workflowStatus?: WorkflowStatus;
+      workload?: number;
+      epicId?: Id<"epics">;
+      personaId?: Id<"personas">;
       dueDate: number;
       projectId: Id<"projects">;
       labelId: Id<"labels">;
+      payload?: TaskPayload;
     }) {
       return api.todos.createATodo({
         taskName,
         description,
+        story,
         priority,
         status,
+        workflowStatus,
+        workload,
+        epicId,
+        personaId,
         dueDate,
         projectId,
         labelId,
+        payload,
       });
     },
 
@@ -851,6 +1174,7 @@ export const api = {
         .from("sub_todos")
         .update({
           status: "DONE",
+          workflow_status: "DONE",
           is_completed: true,
         })
         .eq("id", taskId)
@@ -869,6 +1193,7 @@ export const api = {
         .from("sub_todos")
         .update({
           status: "TODO",
+          workflow_status: "BACKLOG",
           is_completed: false,
         })
         .eq("id", taskId)
@@ -882,22 +1207,34 @@ export const api = {
     async createASubTodo({
       taskName,
       description,
+      story,
       priority,
       status,
+      workflowStatus,
+      workload,
+      epicId,
+      personaId,
       dueDate,
       projectId,
       labelId,
       parentId,
+      payload,
       embedding,
     }: {
       taskName: string;
       description?: string;
+      story?: string;
       priority: PriorityQuadrant | number;
       status?: TodoStatus;
+      workflowStatus?: WorkflowStatus;
+      workload?: number;
+      epicId?: Id<"epics">;
+      personaId?: Id<"personas">;
       dueDate: number;
       projectId: Id<"projects">;
       labelId: Id<"labels">;
       parentId: Id<"todos">;
+      payload?: TaskPayload;
       embedding?: number[];
     }) {
       const { supabase, user } = await getSupabaseAndUser();
@@ -905,6 +1242,14 @@ export const api = {
 
       const normalizedPriority = normalizePriorityQuadrant(priority);
       const normalizedStatus = normalizeTodoStatus(status, "TODO");
+      const normalizedWorkflowStatus = normalizeWorkflowStatus(
+        workflowStatus,
+        normalizedStatus === "DONE" ? "DONE" : "BACKLOG"
+      );
+      const normalizedWorkload =
+        typeof workload === "number" && Number.isFinite(workload)
+          ? Math.max(1, Math.min(100, Math.round(workload)))
+          : null;
 
       const { data, error } = await supabase
         .from("sub_todos")
@@ -912,14 +1257,20 @@ export const api = {
           user_id: user.id,
           task_name: taskName,
           description: description ?? null,
+          story: story ?? null,
           priority: QUADRANT_TO_LEGACY_PRIORITY[normalizedPriority],
           priority_quadrant: normalizedPriority,
           status: normalizedStatus,
+          workflow_status: normalizedWorkflowStatus,
+          workload: normalizedWorkload,
+          epic_id: epicId ?? null,
+          persona_id: personaId ?? null,
           due_date: dueDate,
           project_id: projectId,
           label_id: labelId,
           parent_id: parentId,
           is_completed: isDoneStatus(normalizedStatus),
+          payload: payload ?? {},
           embedding: embedding ?? null,
         })
         .select("id")
@@ -931,31 +1282,49 @@ export const api = {
     async createSubTodoAndEmbeddings({
       taskName,
       description,
+      story,
       priority,
       status,
+      workflowStatus,
+      workload,
+      epicId,
+      personaId,
       dueDate,
       projectId,
       labelId,
       parentId,
+      payload,
     }: {
       taskName: string;
       description?: string;
+      story?: string;
       priority: PriorityQuadrant | number;
       status?: TodoStatus;
+      workflowStatus?: WorkflowStatus;
+      workload?: number;
+      epicId?: Id<"epics">;
+      personaId?: Id<"personas">;
       dueDate: number;
       projectId: Id<"projects">;
       labelId: Id<"labels">;
       parentId: Id<"todos">;
+      payload?: TaskPayload;
     }) {
       return api.subTodos.createASubTodo({
         taskName,
         description,
+        story,
         priority,
         status,
+        workflowStatus,
+        workload,
+        epicId,
+        personaId,
         dueDate,
         projectId,
         labelId,
         parentId,
+        payload,
       });
     },
 
