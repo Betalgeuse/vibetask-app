@@ -53,8 +53,8 @@ export default function SideBar() {
   useEffect(() => {
     if (projectList) {
       const projectItems = renderItems(projectList);
-      const optionalItems =
-        featureSettings?.enabledModules?.persona
+      const optionalItems = [
+        ...(featureSettings?.enabledModules?.persona
           ? [
               {
                 id: "productivity",
@@ -63,11 +63,25 @@ export default function SideBar() {
                 icon: <Hash className="w-4 h-4" />,
               },
             ]
-          : [];
+          : []),
+        ...(featureSettings?.enabledModules?.epic
+          ? [
+              {
+                name: "Epics",
+                link: "/loggedin/epics",
+                icon: <Hash className="w-4 h-4" />,
+              },
+            ]
+          : []),
+      ];
       const items = [...primaryNavItems, ...optionalItems, ...projectItems];
       setNavItems(items);
     }
-  }, [featureSettings?.enabledModules?.persona, projectList]);
+  }, [
+    featureSettings?.enabledModules?.epic,
+    featureSettings?.enabledModules?.persona,
+    projectList,
+  ]);
 
   return (
     <div className="hidden border-r bg-muted/40 md:block">

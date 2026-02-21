@@ -29,15 +29,26 @@ export default function MobileNav({
   navLink?: string;
 }) {
   const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
-  const optionalItems = featureSettings?.enabledModules?.persona
-    ? [
-        {
-          name: "Personas",
-          link: "/loggedin/personas",
-          icon: <span className="text-xs">🧠</span>,
-        },
-      ]
-    : [];
+  const optionalItems = [
+    ...(featureSettings?.enabledModules?.persona
+      ? [
+          {
+            name: "Personas",
+            link: "/loggedin/personas",
+            icon: <span className="text-xs">🧠</span>,
+          },
+        ]
+      : []),
+    ...(featureSettings?.enabledModules?.epic
+      ? [
+          {
+            name: "Epics",
+            link: "/loggedin/epics",
+            icon: <span className="text-xs">🗂️</span>,
+          },
+        ]
+      : []),
+  ];
 
   const navItems = [...primaryNavItems, ...optionalItems];
 
