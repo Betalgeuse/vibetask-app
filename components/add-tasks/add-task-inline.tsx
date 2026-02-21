@@ -17,7 +17,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { CalendarIcon, Text } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { CardFooter } from "../ui/card";
-import { Dispatch, SetStateAction, useEffect } from "react";
+import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Calendar } from "../ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
@@ -33,6 +33,13 @@ import {
 import { Doc, Id } from "@/lib/supabase/types";
 import { useAction, useQuery } from "@/lib/supabase/hooks";
 import { api } from "@/lib/supabase/api";
+import {
+  PriorityQuadrant,
+  createFallbackPrioritySuggestion,
+  quadrantToPriority,
+} from "@/lib/ai/priority";
+import { suggestPriorityForTask } from "@/lib/ai/suggest-priority";
+import PrioritySuggestionDialog from "./priority-suggestion-dialog";
 
 const FormSchema = z.object({
   taskName: z.string().min(2, {
@@ -40,10 +47,12 @@ const FormSchema = z.object({
   }),
   description: z.string().optional().default(""),
   dueDate: z.date({ required_error: "A due date is required" }),
-  priority: z.string().min(1, { message: "Please select a priority" }),
+  priority: z.string().optional().default(""),
   projectId: z.string().min(1, { message: "Please select a Project" }),
   labelId: z.string().min(1, { message: "Please select a Label" }),
 });
+
+type AddTaskFormValues = z.infer<typeof FormSchema>;
 
 export default function AddTaskInline({
   setShowAddTask,
@@ -60,7 +69,7 @@ export default function AddTaskInline({
   const defaultProjectId =
     myProjectId || parentTask?.projectId || projects[0]?._id || "";
   const defaultLabelId = parentTask?.labelId || labels[0]?._id || "";
-  const priority = parentTask?.priority?.toString() || "1";
+  const priority = parentTask?.priority?.toString() || "";
   const parentId = parentTask?._id;
 
   const { toast } = useToast();
@@ -71,7 +80,7 @@ export default function AddTaskInline({
 
   const createTodoEmbeddings = useAction(api.todos.createTodoAndEmbeddings);
 
-  const defaultValues = {
+  const defaultValues: AddTaskFormValues = {
     taskName: "",
     description: "",
     priority,
@@ -80,10 +89,18 @@ export default function AddTaskInline({
     labelId: defaultLabelId,
   };
 
-  const form = useForm<z.infer<typeof FormSchema>>({
+  const form = useForm<AddTaskFormValues>({
     resolver: zodResolver(FormSchema),
     defaultValues,
   });
+
+  const [pendingTaskData, setPendingTaskData] =
+    useState<AddTaskFormValues | null>(null);
+  const [prioritySuggestionOpen, setPrioritySuggestionOpen] = useState(false);
+  const [isResolvingPriority, setIsResolvingPriority] = useState(false);
+  const [isSavingTask, setIsSavingTask] = useState(false);
+  const [suggestedPriority, setSuggestedPriority] =
+    useState<ReturnType<typeof createFallbackPrioritySuggestion> | null>(null);
 
   useEffect(() => {
     const selectedProjectId = form.getValues("projectId");
@@ -99,48 +116,130 @@ export default function AddTaskInline({
     }
   }, [defaultLabelId, form]);
 
-  async function onSubmit(data: z.infer<typeof FormSchema>) {
-    const { taskName, description, priority, dueDate, projectId, labelId } =
-      data;
+  async function createTaskWithPriority(
+    data: AddTaskFormValues,
+    resolvedPriority: number
+  ) {
+    const { taskName, description, dueDate, projectId, labelId } = data;
 
-    if (projectId && labelId) {
+    if (!projectId || !labelId) {
+      return;
+    }
+
+    setIsSavingTask(true);
+
+    try {
       if (parentId) {
-        //subtodo
         await createASubTodoEmbeddings({
           parentId,
           taskName,
           description,
-          priority: parseInt(priority),
+          priority: resolvedPriority,
           dueDate: moment(dueDate).valueOf(),
           projectId: projectId as Id<"projects">,
           labelId: labelId as Id<"labels">,
         });
-
-        toast({
-          title: "🦄 Created a task!",
-          duration: 3000,
-        });
-        form.reset({ ...defaultValues });
       } else {
         await createTodoEmbeddings({
           taskName,
           description,
-          priority: parseInt(priority),
+          priority: resolvedPriority,
           dueDate: moment(dueDate).valueOf(),
           projectId: projectId as Id<"projects">,
           labelId: labelId as Id<"labels">,
         });
-
-        toast({
-          title: "🦄 Created a task!",
-          duration: 3000,
-        });
-        form.reset({ ...defaultValues });
       }
+
+      toast({
+        title: "🦄 Created a task!",
+        duration: 3000,
+      });
+
+      setPendingTaskData(null);
+      setSuggestedPriority(null);
+      setPrioritySuggestionOpen(false);
+      form.reset({ ...defaultValues });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to create task.";
+
+      toast({
+        title: "Could not create task",
+        description: message,
+        duration: 3500,
+      });
+    } finally {
+      setIsSavingTask(false);
     }
   }
+
+  async function onConfirmSuggestedPriority(quadrant: PriorityQuadrant) {
+    if (!pendingTaskData) {
+      return;
+    }
+
+    await createTaskWithPriority(pendingTaskData, quadrantToPriority(quadrant));
+  }
+
+  async function onSubmit(data: AddTaskFormValues) {
+    const selectedPriority = data.priority?.trim();
+
+    if (selectedPriority) {
+      await createTaskWithPriority(data, Number.parseInt(selectedPriority, 10));
+      return;
+    }
+
+    setIsResolvingPriority(true);
+
+    try {
+      const suggestion = await suggestPriorityForTask({
+        taskName: data.taskName,
+        description: data.description,
+        dueDate: moment(data.dueDate).valueOf(),
+        projectId: data.projectId,
+      });
+
+      setPendingTaskData(data);
+      setSuggestedPriority(suggestion);
+      setPrioritySuggestionOpen(true);
+
+      if (suggestion.usedFallback) {
+        toast({
+          title: "Using default priority suggestion",
+          description: suggestion.reason,
+          duration: 3000,
+        });
+      }
+    } catch (_error) {
+      const fallback = createFallbackPrioritySuggestion(
+        "AI suggestion failed. Using default priority suggestion."
+      );
+      setPendingTaskData(data);
+      setSuggestedPriority(fallback);
+      setPrioritySuggestionOpen(true);
+    } finally {
+      setIsResolvingPriority(false);
+    }
+  }
+
+  const isSubmitting = isResolvingPriority || isSavingTask;
+
   return (
     <div>
+      <PrioritySuggestionDialog
+        open={prioritySuggestionOpen}
+        suggestion={suggestedPriority}
+        isSubmitting={isSavingTask}
+        onOpenChange={(open) => {
+          setPrioritySuggestionOpen(open);
+          if (!open && !isSavingTask) {
+            setPendingTaskData(null);
+            setSuggestedPriority(null);
+          }
+        }}
+        onConfirm={onConfirmSuggestedPriority}
+      />
+
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit(onSubmit)}
@@ -227,8 +326,10 @@ export default function AddTaskInline({
               render={({ field }) => (
                 <FormItem>
                   <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
+                    onValueChange={(value) =>
+                      field.onChange(value === "none" ? "" : value)
+                    }
+                    value={field.value?.trim() ? field.value : "none"}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -236,6 +337,7 @@ export default function AddTaskInline({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value="none">No priority (use AI)</SelectItem>
                       {[1, 2, 3, 4].map((item, idx) => (
                         <SelectItem key={idx} value={item.toString()}>
                           Priority {item}
@@ -253,10 +355,7 @@ export default function AddTaskInline({
               name="labelId"
               render={({ field }) => (
                 <FormItem>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                  >
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a Label" />
@@ -281,10 +380,7 @@ export default function AddTaskInline({
             name="projectId"
             render={({ field }) => (
               <FormItem>
-                <Select
-                  onValueChange={field.onChange}
-                  value={field.value}
-                >
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a Project" />
@@ -311,11 +407,12 @@ export default function AddTaskInline({
                 variant={"outline"}
                 type="button"
                 onClick={() => setShowAddTask(false)}
+                disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button className="px-6" type="submit">
-                Add task
+              <Button className="px-6" type="submit" disabled={isSubmitting}>
+                {isResolvingPriority ? "Checking priority..." : "Add task"}
               </Button>
             </div>
           </CardFooter>
