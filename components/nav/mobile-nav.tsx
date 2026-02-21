@@ -19,8 +19,6 @@ import UserProfile from "./user-profile";
 import { api } from "@/lib/supabase/api";
 import { useQuery } from "@/lib/supabase/hooks";
 
-import dunnitLogo from "@/public/logo/dunnit.svg";
-
 export default function MobileNav({
   navTitle = "",
   navLink = "#",
@@ -110,7 +108,7 @@ export default function MobileNav({
           <SearchForm />
         </div>
         <div className="place-content-center w-12 h-12 lg:w-16 lg:h-20">
-          <Image alt="logo" src={dunnitLogo} />
+          <Image alt="logo" src="/logo/dunnit.png" width={48} height={48} />
         </div>
       </div>
     </header>
