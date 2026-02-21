@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/client";
 import { Doc, Id, LabelDoc, ProjectDoc, SubTodoDoc, TodoDoc } from "./types";
+import type { User } from "@supabase/supabase-js";
 
 type TodoRow = {
   id: string;
@@ -47,14 +48,25 @@ type LabelRow = {
 type EisenhowerQuadrant = "doFirst" | "schedule" | "delegate" | "eliminate";
 type EisenhowerTodos = Record<EisenhowerQuadrant, Array<Doc<"todos">>>;
 
-const EMPTY_QUADRANTS: EisenhowerTodos = {
-  doFirst: [],
-  schedule: [],
-  delegate: [],
-  eliminate: [],
-};
+function getEmptyQuadrants(): EisenhowerTodos {
+  return {
+    doFirst: [],
+    schedule: [],
+    delegate: [],
+    eliminate: [],
+  };
+}
 
 const EISENHOWER_PRIORITY_IMPORTANT_MAX = 2;
+const USER_CACHE_TTL_MS = 5_000;
+const supabase = createClient();
+
+let cachedUser: User | null = null;
+let hasCachedUser = false;
+let cachedUserAt = 0;
+let userInFlight: Promise<User | null> | null = null;
+let ensuredDefaultsForUserId: string | null = null;
+let ensureDefaultsInFlight: Promise<void> | null = null;
 
 function toTodoDoc(row: TodoRow): TodoDoc {
   return {
@@ -105,17 +117,47 @@ function toLabelDoc(row: LabelRow): LabelDoc {
   };
 }
 
-async function getSupabaseAndUser() {
-  const supabase = createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+supabase.auth.onAuthStateChange((_event, session) => {
+  cachedUser = session?.user ?? null;
+  hasCachedUser = true;
+  cachedUserAt = Date.now();
+});
 
-  if (error) {
-    throw error;
+async function resolveCurrentUser() {
+  const now = Date.now();
+  if (hasCachedUser && now - cachedUserAt < USER_CACHE_TTL_MS) {
+    return cachedUser;
   }
 
+  if (userInFlight) {
+    return userInFlight;
+  }
+
+  userInFlight = (async () => {
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
+
+    if (error) {
+      throw error;
+    }
+
+    cachedUser = session?.user ?? null;
+    hasCachedUser = true;
+    cachedUserAt = Date.now();
+    return cachedUser;
+  })();
+
+  try {
+    return await userInFlight;
+  } finally {
+    userInFlight = null;
+  }
+}
+
+async function getSupabaseAndUser() {
+  const user = await resolveCurrentUser();
   return { supabase, user };
 }
 
@@ -125,32 +167,54 @@ async function ensureDefaultProjectAndLabel() {
     return;
   }
 
-  const { data: existingProjects } = await supabase
-    .from("projects")
-    .select("id")
-    .eq("user_id", user.id)
-    .limit(1);
-
-  if (!existingProjects || existingProjects.length === 0) {
-    await supabase.from("projects").insert({
-      user_id: user.id,
-      name: "Inbox",
-      type: "user",
-    });
+  if (ensuredDefaultsForUserId === user.id) {
+    return;
   }
 
-  const { data: existingLabels } = await supabase
-    .from("labels")
-    .select("id")
-    .eq("user_id", user.id)
-    .limit(1);
+  if (ensureDefaultsInFlight) {
+    return ensureDefaultsInFlight;
+  }
 
-  if (!existingLabels || existingLabels.length === 0) {
-    await supabase.from("labels").insert({
-      user_id: user.id,
-      name: "General",
-      type: "user",
-    });
+  ensureDefaultsInFlight = (async () => {
+    const { data: existingProjects, error: projectsError } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("user_id", user.id)
+      .limit(1);
+    if (projectsError) throw projectsError;
+
+    if (!existingProjects || existingProjects.length === 0) {
+      const { error: insertProjectError } = await supabase.from("projects").insert({
+        user_id: user.id,
+        name: "Inbox",
+        type: "user",
+      });
+      if (insertProjectError) throw insertProjectError;
+    }
+
+    const { data: existingLabels, error: labelsError } = await supabase
+      .from("labels")
+      .select("id")
+      .eq("user_id", user.id)
+      .limit(1);
+    if (labelsError) throw labelsError;
+
+    if (!existingLabels || existingLabels.length === 0) {
+      const { error: insertLabelError } = await supabase.from("labels").insert({
+        user_id: user.id,
+        name: "General",
+        type: "user",
+      });
+      if (insertLabelError) throw insertLabelError;
+    }
+
+    ensuredDefaultsForUserId = user.id;
+  })();
+
+  try {
+    await ensureDefaultsInFlight;
+  } finally {
+    ensureDefaultsInFlight = null;
   }
 }
 
@@ -364,7 +428,7 @@ export const api = {
       return inCompleteTodos.reduce<EisenhowerTodos>((acc, todo) => {
         acc[getQuadrant(todo)].push(todo);
         return acc;
-      }, { ...EMPTY_QUADRANTS });
+      }, getEmptyQuadrants());
     },
 
     async getCompletedTodosByProjectId({

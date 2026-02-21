@@ -30,6 +30,7 @@ export default function LoginForm() {
               width="50"
               height="50"
               alt="logo"
+              priority
               className="h-16 w-20 md:h-16 md:w-20"
             />
             <h1 className="text-xl hidden lg:flex font-medium text-gray-950 md:text-3xl">

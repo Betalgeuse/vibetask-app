@@ -6,6 +6,7 @@ type AsyncFn<Args, Result> = (args: Args) => Promise<Result>;
 
 let queryVersion = 0;
 const listeners = new Set<() => void>();
+const inFlightQueries = new Map<string, Promise<unknown>>();
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
@@ -37,18 +38,34 @@ export function useQuery<Args, Result>(
   const [data, setData] = useState<Result | undefined>(undefined);
 
   const argsKey = useMemo(() => JSON.stringify(args ?? null), [args]);
+  const queryKey = useMemo(
+    () => `${(fn as { name?: string }).name ?? "anonymous"}:${argsKey}`,
+    [fn, argsKey]
+  );
 
   useEffect(() => {
     let mounted = true;
 
     const run = async () => {
-      const nextData =
-        args === undefined
-          ? await (fn as () => Promise<Result>)()
-          : await (fn as AsyncFn<Args, Result>)(args);
+      try {
+        let promise = inFlightQueries.get(queryKey) as Promise<Result> | undefined;
 
-      if (mounted) {
-        setData(nextData);
+        if (!promise) {
+          promise =
+            args === undefined
+              ? (fn as () => Promise<Result>)()
+              : (fn as AsyncFn<Args, Result>)(args);
+          inFlightQueries.set(queryKey, promise);
+        }
+
+        const nextData = await promise;
+        if (mounted) {
+          setData(nextData);
+        }
+      } catch (error) {
+        console.error("Supabase query failed:", error);
+      } finally {
+        inFlightQueries.delete(queryKey);
       }
     };
 
@@ -57,7 +74,7 @@ export function useQuery<Args, Result>(
     return () => {
       mounted = false;
     };
-  }, [fn, args, argsKey, version]);
+  }, [fn, args, argsKey, queryKey, version]);
 
   return data;
 }

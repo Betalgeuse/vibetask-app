@@ -20,12 +20,16 @@ export default function UserProfile() {
     let isMounted = true;
 
     const loadUser = async () => {
-      const {
-        data: { user: currentUser },
-      } = await supabase.auth.getUser();
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      if (isMounted) {
-        setUser(currentUser ?? null);
+        if (isMounted) {
+          setUser(session?.user ?? null);
+        }
+      } catch (error) {
+        console.error("Failed to load profile session:", error);
       }
     };
 

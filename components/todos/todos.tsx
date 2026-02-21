@@ -25,7 +25,7 @@ export default function Todos({ items }: { items: Array<Doc<"todos">> }) {
   };
   return items.map((task: Doc<"todos">, idx: number) => (
     <Task
-      key={task._id}
+      key={`${task._id}-${idx}`}
       data={task}
       isCompleted={task.isCompleted}
       handleOnChange={() => handleOnChangeTodo(task)}
