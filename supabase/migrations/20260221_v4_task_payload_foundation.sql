@@ -32,11 +32,11 @@ create table if not exists public.epics (
 
 create table if not exists public.personas (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
   code text not null,
   name text not null,
   description text,
-  type text not null default 'user' check (type in ('system', 'user')),
+  type text not null default 'user' check (type = 'user'),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -112,7 +112,6 @@ alter table public.sub_todos
 
 create index if not exists idx_epics_user_id on public.epics(user_id);
 create index if not exists idx_personas_user_id on public.personas(user_id);
-create index if not exists idx_personas_type on public.personas(type);
 create index if not exists idx_todos_workflow_status on public.todos(workflow_status);
 create index if not exists idx_todos_epic_id on public.todos(epic_id);
 create index if not exists idx_todos_persona_id on public.todos(persona_id);
@@ -158,29 +157,29 @@ create policy "personas_select"
 on public.personas
 for select
 to authenticated
-using (type = 'system' or user_id = auth.uid());
+using (user_id = auth.uid());
 
 drop policy if exists "personas_insert" on public.personas;
 create policy "personas_insert"
 on public.personas
 for insert
 to authenticated
-with check (type = 'user' and user_id = auth.uid());
+with check (user_id = auth.uid());
 
 drop policy if exists "personas_update" on public.personas;
 create policy "personas_update"
 on public.personas
 for update
 to authenticated
-using (type = 'user' and user_id = auth.uid())
-with check (type = 'user' and user_id = auth.uid());
+using (user_id = auth.uid())
+with check (user_id = auth.uid());
 
 drop policy if exists "personas_delete" on public.personas;
 create policy "personas_delete"
 on public.personas
 for delete
 to authenticated
-using (type = 'user' and user_id = auth.uid());
+using (user_id = auth.uid());
 
 drop policy if exists "user_feature_settings_select" on public.user_feature_settings;
 create policy "user_feature_settings_select"
@@ -210,19 +209,3 @@ on public.user_feature_settings
 for delete
 to authenticated
 using (user_id = auth.uid());
-
-insert into public.personas (user_id, code, name, description, type)
-select null, 'friendly', 'Friendly', 'Warm and approachable mode', 'system'
-where not exists (select 1 from public.personas where user_id is null and code = 'friendly');
-
-insert into public.personas (user_id, code, name, description, type)
-select null, 'ai_developer', 'AI Developer', 'Build and ship with AI-first workflow', 'system'
-where not exists (select 1 from public.personas where user_id is null and code = 'ai_developer');
-
-insert into public.personas (user_id, code, name, description, type)
-select null, 'student', 'Student', 'Learning-oriented execution mode', 'system'
-where not exists (select 1 from public.personas where user_id is null and code = 'student');
-
-insert into public.personas (user_id, code, name, description, type)
-select null, 'bio_entrepreneur', 'Bio Entrepreneur', 'Biotech founder/operator context', 'system'
-where not exists (select 1 from public.personas where user_id is null and code = 'bio_entrepreneur');
