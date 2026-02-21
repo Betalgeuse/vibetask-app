@@ -36,7 +36,8 @@ import { api } from "@/lib/supabase/api";
 import {
   PriorityQuadrant,
   createFallbackPrioritySuggestion,
-  quadrantToPriority,
+  normalizePriorityQuadrant,
+  PRIORITY_QUADRANT_OPTIONS,
 } from "@/lib/ai/priority";
 import { suggestPriorityForTask } from "@/lib/ai/suggest-priority";
 import PrioritySuggestionDialog from "./priority-suggestion-dialog";
@@ -118,7 +119,7 @@ export default function AddTaskInline({
 
   async function createTaskWithPriority(
     data: AddTaskFormValues,
-    resolvedPriority: number
+    resolvedPriority: PriorityQuadrant
   ) {
     const { taskName, description, dueDate, projectId, labelId } = data;
 
@@ -178,14 +179,23 @@ export default function AddTaskInline({
       return;
     }
 
-    await createTaskWithPriority(pendingTaskData, quadrantToPriority(quadrant));
+    await createTaskWithPriority(pendingTaskData, quadrant);
   }
 
   async function onSubmit(data: AddTaskFormValues) {
     const selectedPriority = data.priority?.trim();
 
     if (selectedPriority) {
-      await createTaskWithPriority(data, Number.parseInt(selectedPriority, 10));
+      const normalizedPriority = normalizePriorityQuadrant(selectedPriority);
+      if (!normalizedPriority) {
+        toast({
+          title: "Could not resolve priority",
+          description: "Please choose a valid priority quadrant.",
+          duration: 3000,
+        });
+        return;
+      }
+      await createTaskWithPriority(data, normalizedPriority);
       return;
     }
 
@@ -338,11 +348,13 @@ export default function AddTaskInline({
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="none">No priority (use AI)</SelectItem>
-                      {[1, 2, 3, 4].map((item, idx) => (
-                        <SelectItem key={idx} value={item.toString()}>
-                          Priority {item}
-                        </SelectItem>
-                      ))}
+                      {PRIORITY_QUADRANT_OPTIONS.map(
+                        ({ quadrant, label, subtitle }) => (
+                          <SelectItem key={quadrant} value={quadrant}>
+                            {label} — {subtitle}
+                          </SelectItem>
+                        )
+                      )}
                     </SelectContent>
                   </Select>
 

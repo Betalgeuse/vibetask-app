@@ -17,6 +17,7 @@ import Task from "../todos/task";
 import { AddTaskWrapper } from "./add-task-button";
 import SuggestMissingTasks from "./suggest-tasks";
 import { useToast } from "../ui/use-toast";
+import { PRIORITY_QUADRANT_META } from "@/lib/types/priority";
 
 export default function AddTaskDialog({ data }: { data: Doc<"todos"> }) {
   const { taskName, description, projectId, labelId, priority, dueDate, _id } =
@@ -55,7 +56,7 @@ export default function AddTaskDialog({ data }: { data: Doc<"todos"> }) {
       },
       {
         labelName: "Priority",
-        value: priority?.toString() || "",
+        value: priority ? PRIORITY_QUADRANT_META[priority].title : "",
         icon: <Flag className="w-4 h-4 text-primary capitalize" />,
       },
       {
