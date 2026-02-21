@@ -1,3 +1,5 @@
+import type { PriorityQuadrant, TodoStatus } from "@/lib/types/priority";
+
 export type Id<_TableName extends string = string> = string;
 
 export type ProjectType = "user" | "system";
@@ -25,7 +27,8 @@ export interface TodoDoc {
   taskName: string;
   description?: string;
   dueDate: number;
-  priority?: number;
+  priority: PriorityQuadrant;
+  status: TodoStatus;
   isCompleted: boolean;
   embedding?: number[];
 }
@@ -39,7 +42,8 @@ export interface SubTodoDoc {
   taskName: string;
   description?: string;
   dueDate: number;
-  priority?: number;
+  priority: PriorityQuadrant;
+  status: TodoStatus;
   isCompleted: boolean;
   embedding?: number[];
 }
@@ -52,3 +56,5 @@ interface DocMap {
 }
 
 export type Doc<T extends keyof DocMap> = DocMap[T];
+
+export type { PriorityQuadrant, TodoStatus } from "@/lib/types/priority";

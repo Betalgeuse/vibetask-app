@@ -1,6 +1,16 @@
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
+import {
+  PRIORITY_QUADRANTS,
+  QUADRANT_TO_LEGACY_PRIORITY,
+  isDoneStatus,
+  isTodoStatus,
+  normalizePriorityQuadrant,
+  normalizeTodoStatus,
+  type PriorityQuadrant,
+  type TodoStatus,
+} from "@/lib/types/priority";
 import { Doc, Id, LabelDoc, ProjectDoc, SubTodoDoc, TodoDoc } from "./types";
 import type { User } from "@supabase/supabase-js";
 
@@ -12,8 +22,10 @@ type TodoRow = {
   task_name: string;
   description: string | null;
   due_date: number | string;
-  priority: number | null;
-  is_completed: boolean;
+  priority: number | string | null;
+  priority_quadrant: string | null;
+  status: string | null;
+  is_completed: boolean | null;
   embedding: number[] | null;
 };
 
@@ -26,8 +38,10 @@ type SubTodoRow = {
   task_name: string;
   description: string | null;
   due_date: number | string;
-  priority: number | null;
-  is_completed: boolean;
+  priority: number | string | null;
+  priority_quadrant: string | null;
+  status: string | null;
+  is_completed: boolean | null;
   embedding: number[] | null;
 };
 
@@ -45,19 +59,23 @@ type LabelRow = {
   type: "user" | "system";
 };
 
-type EisenhowerQuadrant = "doFirst" | "schedule" | "delegate" | "eliminate";
-type EisenhowerTodos = Record<EisenhowerQuadrant, Array<Doc<"todos">>>;
+type EisenhowerTodos = Record<PriorityQuadrant, Array<Doc<"todos">>>;
 
 function getEmptyQuadrants(): EisenhowerTodos {
-  return {
-    doFirst: [],
-    schedule: [],
-    delegate: [],
-    eliminate: [],
-  };
+  return PRIORITY_QUADRANTS.reduce<EisenhowerTodos>(
+    (acc, quadrant) => {
+      acc[quadrant] = [];
+      return acc;
+    },
+    {
+      doFirst: [],
+      schedule: [],
+      delegate: [],
+      eliminate: [],
+    }
+  );
 }
 
-const EISENHOWER_PRIORITY_IMPORTANT_MAX = 2;
 const USER_CACHE_TTL_MS = 5_000;
 const supabase = createClient();
 
@@ -68,7 +86,29 @@ let userInFlight: Promise<User | null> | null = null;
 let ensuredDefaultsForUserId: string | null = null;
 let ensureDefaultsInFlight: Promise<void> | null = null;
 
+function getRowPriorityQuadrant(
+  row: Pick<TodoRow | SubTodoRow, "priority" | "priority_quadrant">
+): PriorityQuadrant {
+  return normalizePriorityQuadrant(row.priority_quadrant ?? row.priority);
+}
+
+function getRowStatus(
+  row: Pick<TodoRow | SubTodoRow, "status" | "is_completed">
+): TodoStatus {
+  if (isTodoStatus(row.status)) {
+    return row.status;
+  }
+
+  if (typeof row.is_completed === "boolean") {
+    return row.is_completed ? "DONE" : "TODO";
+  }
+
+  return "TODO";
+}
+
 function toTodoDoc(row: TodoRow): TodoDoc {
+  const status = getRowStatus(row);
+
   return {
     _id: row.id,
     userId: row.user_id,
@@ -77,13 +117,16 @@ function toTodoDoc(row: TodoRow): TodoDoc {
     taskName: row.task_name,
     description: row.description ?? undefined,
     dueDate: Number(row.due_date),
-    priority: row.priority ?? undefined,
-    isCompleted: row.is_completed,
+    priority: getRowPriorityQuadrant(row),
+    status,
+    isCompleted: isDoneStatus(status),
     embedding: row.embedding ?? undefined,
   };
 }
 
 function toSubTodoDoc(row: SubTodoRow): SubTodoDoc {
+  const status = getRowStatus(row);
+
   return {
     _id: row.id,
     userId: row.user_id,
@@ -93,8 +136,9 @@ function toSubTodoDoc(row: SubTodoRow): SubTodoDoc {
     taskName: row.task_name,
     description: row.description ?? undefined,
     dueDate: Number(row.due_date),
-    priority: row.priority ?? undefined,
-    isCompleted: row.is_completed,
+    priority: getRowPriorityQuadrant(row),
+    status,
+    isCompleted: isDoneStatus(status),
     embedding: row.embedding ?? undefined,
   };
 }
@@ -216,27 +260,6 @@ async function ensureDefaultProjectAndLabel() {
   } finally {
     ensureDefaultsInFlight = null;
   }
-}
-
-function isUrgent(todo: TodoDoc) {
-  const endOfToday = new Date();
-  endOfToday.setHours(23, 59, 59, 999);
-  return todo.dueDate <= endOfToday.getTime();
-}
-
-function isImportant(todo: TodoDoc) {
-  const normalizedPriority = todo.priority ?? 4;
-  return normalizedPriority <= EISENHOWER_PRIORITY_IMPORTANT_MAX;
-}
-
-function getQuadrant(todo: TodoDoc): EisenhowerQuadrant {
-  const urgent = isUrgent(todo);
-  const important = isImportant(todo);
-
-  if (urgent && important) return "doFirst";
-  if (!urgent && important) return "schedule";
-  if (urgent && !important) return "delegate";
-  return "eliminate";
 }
 
 async function listAllTodosForUser(userId: string) {
@@ -426,7 +449,7 @@ export const api = {
     async inCompleteTodosByEisenhowerQuadrant() {
       const inCompleteTodos = await api.todos.inCompleteTodos();
       return inCompleteTodos.reduce<EisenhowerTodos>((acc, todo) => {
-        acc[getQuadrant(todo)].push(todo);
+        acc[todo.priority].push(todo);
         return acc;
       }, getEmptyQuadrants());
     },
@@ -444,7 +467,7 @@ export const api = {
         .select("*")
         .eq("user_id", user.id)
         .eq("project_id", projectId)
-        .eq("is_completed", true)
+        .eq("status", "DONE")
         .order("due_date", { ascending: true });
       if (error) throw error;
       return ((data ?? []) as TodoRow[]).map(toTodoDoc);
@@ -464,6 +487,21 @@ export const api = {
       return ((data ?? []) as TodoRow[]).map(toTodoDoc);
     },
 
+    async getTodosByStatus({ status }: { status: TodoStatus }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return [] as TodoDoc[];
+
+      const normalizedStatus = normalizeTodoStatus(status);
+      const { data, error } = await supabase
+        .from("todos")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("status", normalizedStatus)
+        .order("due_date", { ascending: true });
+      if (error) throw error;
+      return ((data ?? []) as TodoRow[]).map(toTodoDoc);
+    },
+
     async getInCompleteTodosByProjectId({
       projectId,
     }: {
@@ -477,7 +515,7 @@ export const api = {
         .select("*")
         .eq("user_id", user.id)
         .eq("project_id", projectId)
-        .eq("is_completed", false)
+        .in("status", ["TODO", "IN_PROGRESS"])
         .order("due_date", { ascending: true });
       if (error) throw error;
       return ((data ?? []) as TodoRow[]).map(toTodoDoc);
@@ -535,7 +573,7 @@ export const api = {
         .from("todos")
         .select("*")
         .eq("user_id", user.id)
-        .eq("is_completed", true)
+        .eq("status", "DONE")
         .order("due_date", { ascending: true });
       if (error) throw error;
       return ((data ?? []) as TodoRow[]).map(toTodoDoc);
@@ -549,7 +587,7 @@ export const api = {
         .from("todos")
         .select("*")
         .eq("user_id", user.id)
-        .eq("is_completed", false)
+        .in("status", ["TODO", "IN_PROGRESS"])
         .order("due_date", { ascending: true });
       if (error) throw error;
       return ((data ?? []) as TodoRow[]).map(toTodoDoc);
@@ -566,7 +604,10 @@ export const api = {
 
       const { data, error } = await supabase
         .from("todos")
-        .update({ is_completed: true })
+        .update({
+          status: "DONE",
+          is_completed: true,
+        })
         .eq("id", taskId)
         .eq("user_id", user.id)
         .select("id")
@@ -581,7 +622,35 @@ export const api = {
 
       const { data, error } = await supabase
         .from("todos")
-        .update({ is_completed: false })
+        .update({
+          status: "TODO",
+          is_completed: false,
+        })
+        .eq("id", taskId)
+        .eq("user_id", user.id)
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      return data?.id ?? null;
+    },
+
+    async updateTodoStatus({
+      taskId,
+      status,
+    }: {
+      taskId: Id<"todos">;
+      status: TodoStatus;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+
+      const normalizedStatus = normalizeTodoStatus(status);
+      const { data, error } = await supabase
+        .from("todos")
+        .update({
+          status: normalizedStatus,
+          is_completed: isDoneStatus(normalizedStatus),
+        })
         .eq("id", taskId)
         .eq("user_id", user.id)
         .select("id")
@@ -594,6 +663,7 @@ export const api = {
       taskName,
       description,
       priority,
+      status,
       dueDate,
       projectId,
       labelId,
@@ -601,7 +671,8 @@ export const api = {
     }: {
       taskName: string;
       description?: string;
-      priority: number;
+      priority: PriorityQuadrant | number;
+      status?: TodoStatus;
       dueDate: number;
       projectId: Id<"projects">;
       labelId: Id<"labels">;
@@ -610,17 +681,22 @@ export const api = {
       const { supabase, user } = await getSupabaseAndUser();
       if (!user) return null;
 
+      const normalizedPriority = normalizePriorityQuadrant(priority);
+      const normalizedStatus = normalizeTodoStatus(status, "TODO");
+
       const { data, error } = await supabase
         .from("todos")
         .insert({
           user_id: user.id,
           task_name: taskName,
           description: description ?? null,
-          priority,
+          priority: QUADRANT_TO_LEGACY_PRIORITY[normalizedPriority],
+          priority_quadrant: normalizedPriority,
+          status: normalizedStatus,
           due_date: dueDate,
           project_id: projectId,
           label_id: labelId,
-          is_completed: false,
+          is_completed: isDoneStatus(normalizedStatus),
           embedding: embedding ?? null,
         })
         .select("id")
@@ -633,13 +709,15 @@ export const api = {
       taskName,
       description,
       priority,
+      status,
       dueDate,
       projectId,
       labelId,
     }: {
       taskName: string;
       description?: string;
-      priority: number;
+      priority: PriorityQuadrant | number;
+      status?: TodoStatus;
       dueDate: number;
       projectId: Id<"projects">;
       labelId: Id<"labels">;
@@ -648,6 +726,7 @@ export const api = {
         taskName,
         description,
         priority,
+        status,
         dueDate,
         projectId,
         labelId,
@@ -725,7 +804,10 @@ export const api = {
 
       const { data, error } = await supabase
         .from("sub_todos")
-        .update({ is_completed: true })
+        .update({
+          status: "DONE",
+          is_completed: true,
+        })
         .eq("id", taskId)
         .eq("user_id", user.id)
         .select("id")
@@ -740,7 +822,10 @@ export const api = {
 
       const { data, error } = await supabase
         .from("sub_todos")
-        .update({ is_completed: false })
+        .update({
+          status: "TODO",
+          is_completed: false,
+        })
         .eq("id", taskId)
         .eq("user_id", user.id)
         .select("id")
@@ -753,6 +838,7 @@ export const api = {
       taskName,
       description,
       priority,
+      status,
       dueDate,
       projectId,
       labelId,
@@ -761,7 +847,8 @@ export const api = {
     }: {
       taskName: string;
       description?: string;
-      priority: number;
+      priority: PriorityQuadrant | number;
+      status?: TodoStatus;
       dueDate: number;
       projectId: Id<"projects">;
       labelId: Id<"labels">;
@@ -771,18 +858,23 @@ export const api = {
       const { supabase, user } = await getSupabaseAndUser();
       if (!user) return null;
 
+      const normalizedPriority = normalizePriorityQuadrant(priority);
+      const normalizedStatus = normalizeTodoStatus(status, "TODO");
+
       const { data, error } = await supabase
         .from("sub_todos")
         .insert({
           user_id: user.id,
           task_name: taskName,
           description: description ?? null,
-          priority,
+          priority: QUADRANT_TO_LEGACY_PRIORITY[normalizedPriority],
+          priority_quadrant: normalizedPriority,
+          status: normalizedStatus,
           due_date: dueDate,
           project_id: projectId,
           label_id: labelId,
           parent_id: parentId,
-          is_completed: false,
+          is_completed: isDoneStatus(normalizedStatus),
           embedding: embedding ?? null,
         })
         .select("id")
@@ -795,6 +887,7 @@ export const api = {
       taskName,
       description,
       priority,
+      status,
       dueDate,
       projectId,
       labelId,
@@ -802,7 +895,8 @@ export const api = {
     }: {
       taskName: string;
       description?: string;
-      priority: number;
+      priority: PriorityQuadrant | number;
+      status?: TodoStatus;
       dueDate: number;
       projectId: Id<"projects">;
       labelId: Id<"labels">;
@@ -812,6 +906,7 @@ export const api = {
         taskName,
         description,
         priority,
+        status,
         dueDate,
         projectId,
         labelId,
@@ -828,7 +923,7 @@ export const api = {
         .select("*")
         .eq("user_id", user.id)
         .eq("parent_id", parentId)
-        .eq("is_completed", true)
+        .eq("status", "DONE")
         .order("due_date", { ascending: true });
       if (error) throw error;
       return ((data ?? []) as SubTodoRow[]).map(toSubTodoDoc);
@@ -843,7 +938,7 @@ export const api = {
         .select("*")
         .eq("user_id", user.id)
         .eq("parent_id", parentId)
-        .eq("is_completed", false)
+        .in("status", ["TODO", "IN_PROGRESS"])
         .order("due_date", { ascending: true });
       if (error) throw error;
       return ((data ?? []) as SubTodoRow[]).map(toSubTodoDoc);
