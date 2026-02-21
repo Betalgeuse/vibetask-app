@@ -4,15 +4,32 @@ import { action } from "./_generated/server";
 
 import OpenAI from "openai";
 
-const apiKey = process.env.OPENAI_API_KEY ?? process.env.OPEN_AI_KEY;
-const openai = new OpenAI({ apiKey });
+const geminiApiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
+const openAiApiKey = process.env.OPENAI_API_KEY ?? process.env.OPEN_AI_KEY;
+const usingGemini = Boolean(geminiApiKey);
+const resolvedApiKey = geminiApiKey ?? openAiApiKey ?? null;
+
+const openai = new OpenAI({
+  apiKey: resolvedApiKey ?? undefined,
+  ...(usingGemini
+    ? {
+        // Gemini OpenAI-compatible endpoint
+        baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+      }
+    : {}),
+});
+
+const CHAT_MODEL = usingGemini ? "gemini-2.0-flash" : "gpt-3.5-turbo";
+const EMBEDDING_MODEL = usingGemini
+  ? "text-embedding-004"
+  : "text-embedding-ada-002";
 
 function requireOpenAiKey() {
-  if (!apiKey) {
-    throw new Error("OpenAI API key is not defined");
+  if (!resolvedApiKey) {
+    throw new Error("No AI API key configured. Set GEMINI_API_KEY or OPENAI_API_KEY.");
   }
 
-  return apiKey;
+  return resolvedApiKey;
 }
 
 async function resolveAiLabelId(ctx: any) {
@@ -58,7 +75,7 @@ export const suggestMissingItemsWithAi = action({
       response_format: {
         type: "json_object",
       },
-      model: "gpt-3.5-turbo",
+      model: CHAT_MODEL,
     });
 
     console.log(response.choices[0]);
@@ -134,7 +151,7 @@ export const suggestMissingSubItemsWithAi = action({
       response_format: {
         type: "json_object",
       },
-      model: "gpt-3.5-turbo",
+      model: CHAT_MODEL,
     });
 
     console.log(response.choices[0]);
@@ -173,30 +190,18 @@ export const suggestMissingSubItemsWithAi = action({
 });
 
 export const getEmbeddingsWithAI = async (searchText: string) => {
-  const resolvedApiKey = requireOpenAiKey();
-
-  const req = {
+  requireOpenAiKey();
+  const response = await openai.embeddings.create({
     input: searchText,
-    model: "text-embedding-ada-002",
+    model: EMBEDDING_MODEL,
     encoding_format: "float",
-  };
-
-  const response = await fetch("https://api.openai.com/v1/embeddings", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${resolvedApiKey}`,
-    },
-    body: JSON.stringify(req),
   });
 
-  if (!response.ok) {
-    const msg = await response.text();
-    throw new Error(`OpenAI Error, ${msg}`);
-  }
+  const vector = response.data?.[0]?.embedding;
 
-  const json = await response.json();
-  const vector = json["data"][0]["embedding"];
+  if (!vector) {
+    throw new Error("Failed to generate embedding.");
+  }
 
   console.log(`Embedding of ${searchText}: , ${vector.length} dimensions`);
 

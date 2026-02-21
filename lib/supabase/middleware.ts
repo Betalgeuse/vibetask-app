@@ -4,12 +4,24 @@ import { type NextRequest, NextResponse } from "next/server";
 function getRequiredEnv(name: string) {
   const value = process.env[name];
   if (!value) {
-    throw new Error(`Missing ${name} environment variable`);
+    return null;
   }
   return value;
 }
 
 export async function updateSession(request: NextRequest) {
+  const supabaseUrl = getRequiredEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const supabaseAnonKey = getRequiredEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    // Keep app bootable even when Supabase env is not configured yet.
+    return NextResponse.next({
+      request: {
+        headers: request.headers,
+      },
+    });
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -17,8 +29,8 @@ export async function updateSession(request: NextRequest) {
   });
 
   const supabase = createServerClient(
-    getRequiredEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    getRequiredEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         get(name: string) {

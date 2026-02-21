@@ -24,7 +24,7 @@ export default function LoginForm() {
     <main className="bg-gradient-to-r from-purple-200 to-orange-200 h-full min-h-screen">
       <div className="container relative m-0 mx-auto py-10 md:px-10">
         <div className="max-width flex items-center justify-center lg:justify-between">
-          <Link className="flex items-center gap-1" href="/loggedin">
+          <Link className="flex items-center gap-1" href="/">
             <Image
               src={todovexLogo}
               width="50"
@@ -33,7 +33,7 @@ export default function LoginForm() {
               className="h-16 w-20 md:h-16 md:w-20"
             />
             <h1 className="text-xl hidden lg:flex font-medium text-gray-950 md:text-3xl">
-              TodoVex
+              VibeTask
             </h1>
           </Link>
           <div className="hidden lg:flex w-fit items-center">
@@ -60,9 +60,9 @@ export default function LoginForm() {
               <a
                 className="font-bold"
                 target="_blank"
-                href="https://www.openai.com/"
+                href="https://ai.google.dev/"
               >
-                OpenAI ✨
+                Gemini ✨
               </a>
             </span>
             <h1 className="inline-block text-center text-4xl font-medium tracking-tighter text-dark lg:text-7xl">
@@ -71,7 +71,7 @@ export default function LoginForm() {
               Todoist Clone
             </h1>
             <h2 className="mt-8 text-center text-xl font-light tracking-tight lg:text-3xl">
-              TodoVex seamlessly{" "}
+              VibeTask seamlessly{" "}
               <span className="font-bold px-1">organizes your tasks</span> and
               <br className="hidden lg:inline-block" />
               <span className="font-bold px-1">predicts what&apos;s next</span>
@@ -155,11 +155,11 @@ export default function LoginForm() {
             </a>
             and
             <a
-              href="https://www.openai.com/"
+              href="https://ai.google.dev/"
               target="_blank"
               className="pl-1 font-bold transition hover:text-black/50"
             >
-              OpenAI
+              Gemini
             </a>
           </div>
           <div className="flex space-x-4 pb-4 sm:pb-0">
@@ -178,7 +178,7 @@ export default function LoginForm() {
             <a
               className="group"
               aria-label="GitHub"
-              href="https://github.com/kulkarniankita/todoist-clone"
+              href="https://github.com/Betalgeuse/vibetask-app"
             >
               <svg
                 aria-hidden="true"
@@ -190,7 +190,7 @@ export default function LoginForm() {
             <a
               className="group"
               aria-label="GitHub"
-              href="https://github.com/kulkarniankita/todoist-clone"
+              href="https://github.com/Betalgeuse/vibetask-app"
             >
               <svg
                 viewBox="0 0 256 180"

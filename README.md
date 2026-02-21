@@ -1,7 +1,6 @@
-# Todovex - An Open Source AI-Powered Todoist Clone
+# VibeTask - Supabase + Convex AI Task Manager
 
-
-Built with the Next.js 14 App Router, Convex, React, Next.js Auth V5 i.e. Auth.js, Google Sign in, ShadCN UI library, React Hook Forms, TypeScript, OPenAI, TailwindCSS and more
+Built with Next.js 14 App Router, Supabase Auth (Google + Email magic link), Convex, React, ShadCN UI, React Hook Form, TypeScript, and Gemini/OpenAI compatible AI utilities.
 
 
 ![Project Image](https://www.todovex.ai/og-image.png)
