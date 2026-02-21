@@ -1,4 +1,5 @@
 import type { PriorityQuadrant, TodoStatus } from "@/lib/types/priority";
+import type { TaskPayload, TaskModuleKey, WorkflowStatus } from "@/lib/types/task-payload";
 
 export type Id<_TableName extends string = string> = string;
 
@@ -26,10 +27,16 @@ export interface TodoDoc {
   labelId: Id<"labels">;
   taskName: string;
   description?: string;
+  story?: string;
   dueDate: number;
   priority: PriorityQuadrant;
   status: TodoStatus;
+  workflowStatus?: WorkflowStatus;
+  workload?: number;
+  epicId?: Id<"epics">;
+  personaId?: Id<"personas">;
   isCompleted: boolean;
+  payload?: TaskPayload;
   embedding?: number[];
 }
 
@@ -41,11 +48,41 @@ export interface SubTodoDoc {
   parentId: Id<"todos">;
   taskName: string;
   description?: string;
+  story?: string;
   dueDate: number;
   priority: PriorityQuadrant;
   status: TodoStatus;
+  workflowStatus?: WorkflowStatus;
+  workload?: number;
+  epicId?: Id<"epics">;
+  personaId?: Id<"personas">;
   isCompleted: boolean;
+  payload?: TaskPayload;
   embedding?: number[];
+}
+
+export interface EpicDoc {
+  _id: Id<"epics">;
+  userId: string;
+  name: string;
+  description?: string;
+}
+
+export interface PersonaDoc {
+  _id: Id<"personas">;
+  userId: string | null;
+  code: string;
+  name: string;
+  description?: string;
+  type: "system" | "user";
+}
+
+export interface UserFeatureSettingsDoc {
+  _id: Id<"userFeatureSettings">;
+  userId: string;
+  enabledModules?: Partial<Record<TaskModuleKey, boolean>>;
+  taskPropertyVisibility?: Record<string, boolean>;
+  sidebarModules?: string[];
 }
 
 interface DocMap {
@@ -53,8 +90,12 @@ interface DocMap {
   labels: LabelDoc;
   todos: TodoDoc;
   subTodos: SubTodoDoc;
+  epics: EpicDoc;
+  personas: PersonaDoc;
+  userFeatureSettings: UserFeatureSettingsDoc;
 }
 
 export type Doc<T extends keyof DocMap> = DocMap[T];
 
 export type { PriorityQuadrant, TodoStatus } from "@/lib/types/priority";
+export type { WorkflowStatus, TaskPayload, TaskModuleKey } from "@/lib/types/task-payload";

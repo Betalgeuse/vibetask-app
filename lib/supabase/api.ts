@@ -11,6 +11,11 @@ import {
   type PriorityQuadrant,
   type TodoStatus,
 } from "@/lib/types/priority";
+import {
+  normalizeWorkflowStatus,
+  type TaskPayload,
+  type WorkflowStatus,
+} from "@/lib/types/task-payload";
 import { Doc, Id, LabelDoc, ProjectDoc, SubTodoDoc, TodoDoc } from "./types";
 import type { User } from "@supabase/supabase-js";
 
@@ -21,10 +26,16 @@ type TodoRow = {
   label_id: string;
   task_name: string;
   description: string | null;
+  story: string | null;
   due_date: number | string;
   priority: number | string | null;
   priority_quadrant: string | null;
   status: string | null;
+  workflow_status: string | null;
+  workload: number | null;
+  epic_id: string | null;
+  persona_id: string | null;
+  payload: Record<string, unknown> | null;
   is_completed: boolean | null;
   embedding: number[] | null;
 };
@@ -37,10 +48,16 @@ type SubTodoRow = {
   parent_id: string;
   task_name: string;
   description: string | null;
+  story: string | null;
   due_date: number | string;
   priority: number | string | null;
   priority_quadrant: string | null;
   status: string | null;
+  workflow_status: string | null;
+  workload: number | null;
+  epic_id: string | null;
+  persona_id: string | null;
+  payload: Record<string, unknown> | null;
   is_completed: boolean | null;
   embedding: number[] | null;
 };
@@ -106,8 +123,23 @@ function getRowStatus(
   return "TODO";
 }
 
+function getRowWorkflowStatus(
+  row: Pick<TodoRow | SubTodoRow, "workflow_status" | "status" | "is_completed">
+): WorkflowStatus {
+  const fallback = getRowStatus(row) === "DONE" ? "DONE" : "BACKLOG";
+  return normalizeWorkflowStatus(row.workflow_status, fallback);
+}
+
+function getRowPayload(row: Pick<TodoRow | SubTodoRow, "payload">): TaskPayload | undefined {
+  if (!row.payload || typeof row.payload !== "object") {
+    return undefined;
+  }
+  return row.payload as TaskPayload;
+}
+
 function toTodoDoc(row: TodoRow): TodoDoc {
   const status = getRowStatus(row);
+  const workflowStatus = getRowWorkflowStatus(row);
 
   return {
     _id: row.id,
@@ -116,16 +148,23 @@ function toTodoDoc(row: TodoRow): TodoDoc {
     labelId: row.label_id,
     taskName: row.task_name,
     description: row.description ?? undefined,
+    story: row.story ?? undefined,
     dueDate: Number(row.due_date),
     priority: getRowPriorityQuadrant(row),
     status,
+    workflowStatus,
+    workload: row.workload ?? undefined,
+    epicId: row.epic_id ?? undefined,
+    personaId: row.persona_id ?? undefined,
     isCompleted: isDoneStatus(status),
+    payload: getRowPayload(row),
     embedding: row.embedding ?? undefined,
   };
 }
 
 function toSubTodoDoc(row: SubTodoRow): SubTodoDoc {
   const status = getRowStatus(row);
+  const workflowStatus = getRowWorkflowStatus(row);
 
   return {
     _id: row.id,
@@ -135,10 +174,16 @@ function toSubTodoDoc(row: SubTodoRow): SubTodoDoc {
     parentId: row.parent_id,
     taskName: row.task_name,
     description: row.description ?? undefined,
+    story: row.story ?? undefined,
     dueDate: Number(row.due_date),
     priority: getRowPriorityQuadrant(row),
     status,
+    workflowStatus,
+    workload: row.workload ?? undefined,
+    epicId: row.epic_id ?? undefined,
+    personaId: row.persona_id ?? undefined,
     isCompleted: isDoneStatus(status),
+    payload: getRowPayload(row),
     embedding: row.embedding ?? undefined,
   };
 }
