@@ -27,7 +27,7 @@ export const searchTasks = action({
   },
   handler: async (ctx, { query }) => {
     try {
-      const userId = await handleUserId(ctx);
+      const userId = await handleUserId(ctx as any);
       if (userId) {
         // 1. Generate an embedding from you favorite third party API:
         const embedding = await getEmbeddingsWithAI(query);

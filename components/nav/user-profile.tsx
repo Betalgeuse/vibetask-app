@@ -1,7 +1,9 @@
 "use client";
-import { useSession } from "next-auth/react";
+import { signOutAction } from "@/actions/auth-action";
+import { createClient } from "@/lib/supabase/client";
+import { User } from "@supabase/supabase-js";
 import Image from "next/image";
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,14 +11,42 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { Button } from "../ui/button";
-import { signOutAction } from "@/actions/auth-action";
 
 export default function UserProfile() {
-  const session = useSession();
+  const supabase = useMemo(() => createClient(), []);
+  const [user, setUser] = useState<User | null>(null);
 
-  const imageUrl = session?.data?.user?.image;
-  const name = session?.data?.user?.name;
-  const email = session?.data?.user?.email;
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadUser = async () => {
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+
+      if (isMounted) {
+        setUser(currentUser ?? null);
+      }
+    };
+
+    void loadUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  const imageUrl =
+    user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture ?? null;
+  const name = user?.user_metadata?.name ?? user?.email ?? "User";
+  const email = user?.email ?? "Account";
 
   return (
     <DropdownMenu>

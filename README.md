@@ -34,7 +34,7 @@ Built with the Next.js 14 App Router, Convex, React, Next.js Auth V5 i.e. Auth.j
 
 To get started with this project, you need to do the following,
 1. Please fork the repo
-2. Copy the .env.example variables into a separate .env.local file
+2. Copy the `.env.sample` variables into a separate `.env.local` file
 3. Create the credentials mentioned in the Youtube tutorial to get started!
 
 ## 1. How to fork and clone

@@ -1,10 +1,58 @@
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import { query, mutation, action } from "./_generated/server";
 import { v } from "convex/values";
 import { handleUserId } from "./auth";
 import moment from "moment";
 import { getEmbeddingsWithAI } from "./openai";
 import { api } from "./_generated/api";
+
+type EisenhowerQuadrant = "doFirst" | "schedule" | "delegate" | "eliminate";
+
+type EisenhowerTodos = Record<EisenhowerQuadrant, Array<Doc<"todos">>>;
+
+const EISENHOWER_PRIORITY_IMPORTANT_MAX = 2;
+
+function getUrgency(todo: Doc<"todos">) {
+  // Urgent = due today or overdue.
+  // We intentionally compare against end-of-day so all tasks due on the same day
+  // stay in the urgent buckets throughout that day.
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+  return todo.dueDate <= endOfToday.getTime();
+}
+
+function getImportance(todo: Doc<"todos">) {
+  // Importance mapping:
+  // - Priority 1-2 => important
+  // - Priority 3-4 (or missing) => not important
+  const normalizedPriority = todo.priority ?? 4;
+  return normalizedPriority <= EISENHOWER_PRIORITY_IMPORTANT_MAX;
+}
+
+function getQuadrant(todo: Doc<"todos">): EisenhowerQuadrant {
+  const isUrgent = getUrgency(todo);
+  const isImportant = getImportance(todo);
+
+  if (isUrgent && isImportant) {
+    return "doFirst";
+  }
+  if (!isUrgent && isImportant) {
+    return "schedule";
+  }
+  if (isUrgent && !isImportant) {
+    return "delegate";
+  }
+  return "eliminate";
+}
+
+function getEmptyQuadrants(): EisenhowerTodos {
+  return {
+    doFirst: [],
+    schedule: [],
+    delegate: [],
+    eliminate: [],
+  };
+}
 
 export const get = query({
   args: {},
@@ -17,6 +65,26 @@ export const get = query({
         .collect();
     }
     return [];
+  },
+});
+
+export const inCompleteTodosByEisenhowerQuadrant = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await handleUserId(ctx);
+    if (userId) {
+      const todos = await ctx.db
+        .query("todos")
+        .filter((q) => q.eq(q.field("userId"), userId))
+        .filter((q) => q.eq(q.field("isCompleted"), false))
+        .collect();
+
+      return todos.reduce<EisenhowerTodos>((acc, todo) => {
+        acc[getQuadrant(todo)].push(todo);
+        return acc;
+      }, getEmptyQuadrants());
+    }
+    return getEmptyQuadrants();
   },
 });
 

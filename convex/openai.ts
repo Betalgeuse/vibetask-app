@@ -3,16 +3,33 @@ import { api } from "./_generated/api";
 import { action } from "./_generated/server";
 
 import OpenAI from "openai";
-import { Id } from "./_generated/dataModel";
 
-const apiKey = process.env.OPEN_AI_KEY;
+const apiKey = process.env.OPENAI_API_KEY ?? process.env.OPEN_AI_KEY;
 const openai = new OpenAI({ apiKey });
+
+function requireOpenAiKey() {
+  if (!apiKey) {
+    throw new Error("OpenAI API key is not defined");
+  }
+
+  return apiKey;
+}
+
+async function resolveAiLabelId(ctx: any) {
+  const labels = await ctx.runQuery(api.labels.getLabels, {});
+  const aiLabel = labels.find((label: { name: string }) =>
+    label.name.toLowerCase().includes("ai")
+  );
+  return aiLabel?._id ?? labels[0]?._id ?? null;
+}
 
 export const suggestMissingItemsWithAi = action({
   args: {
     projectId: v.id("projects"),
   },
   handler: async (ctx, { projectId }) => {
+    requireOpenAiKey();
+
     //retrieve todos for the user
     const todos = await ctx.runQuery(api.todos.getTodosByProjectId, {
       projectId,
@@ -53,7 +70,13 @@ export const suggestMissingItemsWithAi = action({
     //create the todos
     if (messageContent) {
       const items = JSON.parse(messageContent)?.todos ?? [];
-      const AI_LABEL_ID = "k57exc6xrw3ar5e1nmab4vnbjs6v1m4p";
+      const aiLabelId = await resolveAiLabelId(ctx);
+
+      if (!aiLabelId) {
+        throw new Error(
+          "No labels found. Create at least one label before using AI suggestions."
+        );
+      }
 
       for (let i = 0; i < items.length; i++) {
         const { taskName, description } = items[i];
@@ -64,7 +87,7 @@ export const suggestMissingItemsWithAi = action({
           priority: 1,
           dueDate: new Date().getTime(),
           projectId,
-          labelId: AI_LABEL_ID as Id<"labels">,
+          labelId: aiLabelId,
           embedding,
         });
       }
@@ -80,6 +103,8 @@ export const suggestMissingSubItemsWithAi = action({
     description: v.string(),
   },
   handler: async (ctx, { projectId, parentId, taskName, description }) => {
+    requireOpenAiKey();
+
     //retrieve todos for the user
     const todos = await ctx.runQuery(api.subTodos.getSubTodosByParentId, {
       parentId,
@@ -121,7 +146,13 @@ export const suggestMissingSubItemsWithAi = action({
     //create the todos
     if (messageContent) {
       const items = JSON.parse(messageContent)?.todos ?? [];
-      const AI_LABEL_ID = "k57exc6xrw3ar5e1nmab4vnbjs6v1m4p";
+      const aiLabelId = await resolveAiLabelId(ctx);
+
+      if (!aiLabelId) {
+        throw new Error(
+          "No labels found. Create at least one label before using AI suggestions."
+        );
+      }
 
       for (let i = 0; i < items.length; i++) {
         const { taskName, description } = items[i];
@@ -133,7 +164,7 @@ export const suggestMissingSubItemsWithAi = action({
           dueDate: new Date().getTime(),
           projectId,
           parentId,
-          labelId: AI_LABEL_ID as Id<"labels">,
+          labelId: aiLabelId,
           embedding,
         });
       }
@@ -142,9 +173,7 @@ export const suggestMissingSubItemsWithAi = action({
 });
 
 export const getEmbeddingsWithAI = async (searchText: string) => {
-  if (!apiKey) {
-    throw new Error("Open AI Key is not defined");
-  }
+  const resolvedApiKey = requireOpenAiKey();
 
   const req = {
     input: searchText,
@@ -156,7 +185,7 @@ export const getEmbeddingsWithAI = async (searchText: string) => {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${resolvedApiKey}`,
     },
     body: JSON.stringify(req),
   });

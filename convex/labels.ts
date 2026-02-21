@@ -12,7 +12,10 @@ export const getLabels = query({
         .filter((q) => q.eq(q.field("userId"), userId))
         .collect();
 
-      const systemLabels = await ctx.db.query("labels").collect();
+      const systemLabels = await ctx.db
+        .query("labels")
+        .filter((q) => q.eq(q.field("type"), "system"))
+        .collect();
 
       return [...systemLabels, ...userLabels];
     }
@@ -27,12 +30,14 @@ export const getLabelByLabelId = query({
   handler: async (ctx, { labelId }) => {
     const userId = await handleUserId(ctx);
     if (userId) {
-      const project = await ctx.db
-        .query("labels")
-        .filter((q) => q.eq(q.field("_id"), labelId))
-        .collect();
+      const label = await ctx.db.get(labelId);
+      if (!label) {
+        return null;
+      }
 
-      return project?.[0] || null;
+      if (label.type === "system" || label.userId === userId) {
+        return label;
+      }
     }
     return null;
   },

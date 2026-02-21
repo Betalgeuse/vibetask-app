@@ -9,6 +9,7 @@ export const userSchema = {
   name: v.optional(v.string()),
   emailVerified: v.optional(v.number()),
   image: v.optional(v.string()),
+  supabaseUserId: v.optional(v.string()),
 };
 
 export const sessionSchema = {
@@ -54,7 +55,9 @@ export const authenticatorSchema = {
 };
 
 const authTables = {
-  users: defineTable(userSchema).index("email", ["email"]),
+  users: defineTable(userSchema)
+    .index("email", ["email"])
+    .index("supabaseUserId", ["supabaseUserId"]),
   sessions: defineTable(sessionSchema)
     .index("sessionToken", ["sessionToken"])
     .index("userId", ["userId"]),

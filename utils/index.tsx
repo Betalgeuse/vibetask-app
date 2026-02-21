@@ -1,4 +1,4 @@
-import { Calendar, CalendarDays, Grid2X2, Inbox } from "lucide-react";
+import { Calendar, CalendarDays, Grid2X2, Inbox, Tag } from "lucide-react";
 
 export const primaryNavItems = [
   {
@@ -18,11 +18,14 @@ export const primaryNavItems = [
     icon: <CalendarDays className="w-4 h-4" />,
   },
   {
+    name: "Eisenhower Matrix",
+    link: "/loggedin/eisenhower",
+    icon: <Grid2X2 className="w-4 h-4" />,
+  },
+  {
     id: "filters",
     name: "Filters & Labels",
     link: "/loggedin/filter-labels",
-    icon: <Grid2X2 className="w-4 h-4" />,
+    icon: <Tag className="w-4 h-4" />,
   },
 ];
-
-export const GET_STARTED_PROJECT_ID = "k97fs8npdxzkr39y5vjcp9kq1d6tycm1";

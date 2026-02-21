@@ -1,12 +1,20 @@
-import { useSession } from "next-auth/react";
 import Providers from "../providers";
-import { auth } from "@/auth";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 export default async function LoggedInLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await auth();
-  return <Providers session={session}>{children}</Providers>;
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/");
+  }
+
+  return <Providers>{children}</Providers>;
 }

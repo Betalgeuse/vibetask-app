@@ -8,18 +8,16 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
-  FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { toast, useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { CalendarIcon, Text } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { CardFooter } from "../ui/card";
-import { Dispatch, SetStateAction } from "react";
+import { Dispatch, SetStateAction, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Calendar } from "../ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
@@ -33,9 +31,8 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Doc, Id } from "@/convex/_generated/dataModel";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { GET_STARTED_PROJECT_ID } from "@/utils";
 
 const FormSchema = z.object({
   taskName: z.string().min(2, {
@@ -57,19 +54,16 @@ export default function AddTaskInline({
   parentTask?: Doc<"todos">;
   projectId?: Id<"projects">;
 }) {
-  const projectId =
-    myProjectId ||
-    parentTask?.projectId ||
-    (GET_STARTED_PROJECT_ID as Id<"projects">);
+  const projects = useQuery(api.projects.getProjects) ?? [];
+  const labels = useQuery(api.labels.getLabels) ?? [];
 
-  const labelId =
-    parentTask?.labelId || ("k579xwsz7e2y73rxexkrg2f5j96tzt4f" as Id<"labels">);
+  const defaultProjectId =
+    myProjectId || parentTask?.projectId || projects[0]?._id || "";
+  const defaultLabelId = parentTask?.labelId || labels[0]?._id || "";
   const priority = parentTask?.priority?.toString() || "1";
   const parentId = parentTask?._id;
 
   const { toast } = useToast();
-  const projects = useQuery(api.projects.getProjects) ?? [];
-  const labels = useQuery(api.labels.getLabels) ?? [];
 
   const createASubTodoEmbeddings = useAction(
     api.subTodos.createSubTodoAndEmbeddings
@@ -82,8 +76,8 @@ export default function AddTaskInline({
     description: "",
     priority,
     dueDate: new Date(),
-    projectId,
-    labelId,
+    projectId: defaultProjectId,
+    labelId: defaultLabelId,
   };
 
   const form = useForm<z.infer<typeof FormSchema>>({
@@ -91,14 +85,28 @@ export default function AddTaskInline({
     defaultValues,
   });
 
+  useEffect(() => {
+    const selectedProjectId = form.getValues("projectId");
+    if (!selectedProjectId && defaultProjectId) {
+      form.setValue("projectId", defaultProjectId);
+    }
+  }, [defaultProjectId, form]);
+
+  useEffect(() => {
+    const selectedLabelId = form.getValues("labelId");
+    if (!selectedLabelId && defaultLabelId) {
+      form.setValue("labelId", defaultLabelId);
+    }
+  }, [defaultLabelId, form]);
+
   async function onSubmit(data: z.infer<typeof FormSchema>) {
     const { taskName, description, priority, dueDate, projectId, labelId } =
       data;
 
-    if (projectId) {
+    if (projectId && labelId) {
       if (parentId) {
         //subtodo
-        const mutationId = createASubTodoEmbeddings({
+        await createASubTodoEmbeddings({
           parentId,
           taskName,
           description,
@@ -108,15 +116,13 @@ export default function AddTaskInline({
           labelId: labelId as Id<"labels">,
         });
 
-        if (mutationId !== undefined) {
-          toast({
-            title: "🦄 Created a task!",
-            duration: 3000,
-          });
-          form.reset({ ...defaultValues });
-        }
+        toast({
+          title: "🦄 Created a task!",
+          duration: 3000,
+        });
+        form.reset({ ...defaultValues });
       } else {
-        const mutationId = createTodoEmbeddings({
+        await createTodoEmbeddings({
           taskName,
           description,
           priority: parseInt(priority),
@@ -125,13 +131,11 @@ export default function AddTaskInline({
           labelId: labelId as Id<"labels">,
         });
 
-        if (mutationId !== undefined) {
-          toast({
-            title: "🦄 Created a task!",
-            duration: 3000,
-          });
-          form.reset({ ...defaultValues });
-        }
+        toast({
+          title: "🦄 Created a task!",
+          duration: 3000,
+        });
+        form.reset({ ...defaultValues });
       }
     }
   }
@@ -224,7 +228,7 @@ export default function AddTaskInline({
                 <FormItem>
                   <Select
                     onValueChange={field.onChange}
-                    defaultValue={priority}
+                    value={field.value}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -251,7 +255,7 @@ export default function AddTaskInline({
                 <FormItem>
                   <Select
                     onValueChange={field.onChange}
-                    defaultValue={labelId || field.value}
+                    value={field.value}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -279,7 +283,7 @@ export default function AddTaskInline({
               <FormItem>
                 <Select
                   onValueChange={field.onChange}
-                  defaultValue={projectId || field.value}
+                  value={field.value}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -305,6 +309,7 @@ export default function AddTaskInline({
               <Button
                 className="bg-gray-300/40 text-gray-950 px-6 hover:bg-gray-300"
                 variant={"outline"}
+                type="button"
                 onClick={() => setShowAddTask(false)}
               >
                 Cancel

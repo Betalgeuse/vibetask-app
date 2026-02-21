@@ -3,22 +3,17 @@ import GoogleProvider from "next-auth/providers/google";
 import { ConvexAdapter } from "./app/ConvexAdapter";
 import { importPKCS8, SignJWT } from "jose";
 
-if (process.env.CONVEX_AUTH_PRIVATE_KEY === undefined) {
-  throw new Error("Missing CONVEX_AUTH_PRIVATE_KEY");
+function getRequiredEnv(name: string) {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing ${name} environment variable`);
+  }
+  return value;
 }
 
-if (process.env.JWKS === undefined) {
-  throw new Error("Missing JWKS");
+function getConvexSiteUrl() {
+  return getRequiredEnv("NEXT_PUBLIC_CONVEX_URL").replace(/\.cloud$/, ".site");
 }
-
-if (process.env.NEXT_PUBLIC_CONVEX_URL === undefined) {
-  throw new Error("Missing NEXT_PUBLIC_CONVEX_URL");
-}
-
-const CONVEX_SITE_URL = process.env.NEXT_PUBLIC_CONVEX_URL!.replace(
-  /.cloud$/,
-  ".site"
-);
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -33,7 +28,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async session({ session }) {
       const privateKey = await importPKCS8(
-        process.env.CONVEX_AUTH_PRIVATE_KEY!,
+        getRequiredEnv("CONVEX_AUTH_PRIVATE_KEY"),
         "RS256"
       );
 
@@ -42,7 +37,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       })
         .setProtectedHeader({ alg: "RS256" })
         .setIssuedAt()
-        .setIssuer(CONVEX_SITE_URL)
+        .setIssuer(getConvexSiteUrl())
         .setAudience("convex")
         .setExpirationTime("1h")
         .sign(privateKey);

@@ -27,10 +27,10 @@ export default function AddTaskDialog({ data }: { data: Doc<"todos"> }) {
 
   const { toast } = useToast();
 
-  const inCompletedSubtodosByProject =
+  const inCompletedSubtodosByProject: Array<Doc<"subTodos">> =
     useQuery(api.subTodos.inCompleteSubTodos, { parentId: _id }) ?? [];
 
-  const completedSubtodosByProject =
+  const completedSubtodosByProject: Array<Doc<"subTodos">> =
     useQuery(api.subTodos.completedSubTodos, { parentId: _id }) ?? [];
 
   const checkASubTodoMutation = useMutation(api.subTodos.checkASubTodo);

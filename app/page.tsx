@@ -1,15 +1,25 @@
 "use client";
-import { signInAction } from "@/actions/auth-action";
+import { signInAction, signInWithEmailAction } from "@/actions/auth-action";
 import { Button } from "@/components/ui/button";
 import todovexLogo from "@/public/logo/todovex.svg";
 import clsx from "clsx";
 import { Loader, StepForward } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import { useFormStatus } from "react-dom";
 
 export default function LoginForm() {
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setError(params.get("error"));
+    setMessage(params.get("message"));
+  }, []);
+
   return (
     <main className="bg-gradient-to-r from-purple-200 to-orange-200 h-full min-h-screen">
       <div className="container relative m-0 mx-auto py-10 md:px-10">
@@ -67,9 +77,37 @@ export default function LoginForm() {
               <span className="font-bold px-1">predicts what&apos;s next</span>
               using AI.
             </h2>
+            {(error || message) && (
+              <div
+                className={clsx(
+                  "mt-6 rounded-lg border px-4 py-2 text-sm text-center max-w-xl",
+                  error
+                    ? "border-red-300 bg-red-50 text-red-700"
+                    : "border-green-300 bg-green-50 text-green-700"
+                )}
+              >
+                {error ?? message}
+              </div>
+            )}
             <div className="mt-12 flex flex-col gap-4">
               <form action={signInAction}>
                 <GetStartedButton />
+              </form>
+              <form
+                action={signInWithEmailAction}
+                className="mx-auto w-full max-w-sm rounded-xl border border-purple-200 bg-white/80 p-4"
+              >
+                <p className="mb-3 text-sm text-slate-700">
+                  Prefer email? We&apos;ll send you a secure sign-in link.
+                </p>
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  placeholder="you@example.com"
+                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-purple-500"
+                />
+                <EmailSignInButton />
               </form>
               <div className="w-fit items-center">
                 <Button
@@ -175,6 +213,7 @@ export default function LoginForm() {
     </main>
   );
 }
+
 function GetStartedButton() {
   const { pending } = useFormStatus();
 
@@ -196,6 +235,20 @@ function GetStartedButton() {
           </>
         )}
       </span>
+    </button>
+  );
+}
+
+function EmailSignInButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="mt-3 w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
+    >
+      {pending ? "Sending link..." : "Email me a sign-in link"}
     </button>
   );
 }

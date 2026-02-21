@@ -4,6 +4,8 @@ import { handleUserId } from "./auth";
 import { api } from "./_generated/api";
 import { Doc } from "./_generated/dataModel";
 
+const apiRef = api as any;
+
 export const getProjects = query({
   args: {},
   handler: async (ctx) => {
@@ -32,11 +34,14 @@ export const getProjectByProjectId = query({
   handler: async (ctx, { projectId }) => {
     const userId = await handleUserId(ctx);
     if (userId) {
-      const project = await ctx.db
-        .query("projects")
-        .filter((q) => q.eq(q.field("_id"), projectId))
-        .collect();
-      return project?.[0] || null;
+      const project = await ctx.db.get(projectId);
+      if (!project) {
+        return null;
+      }
+
+      if (project.type === "system" || project.userId === userId) {
+        return project;
+      }
     }
     return null;
   },
@@ -75,10 +80,17 @@ export const deleteProject = mutation({
     try {
       const userId = await handleUserId(ctx);
       if (userId) {
-        const taskId = await ctx.db.delete(projectId);
-        //query todos and map through them and delete
+        const project = await ctx.db.get(projectId);
+        if (!project) {
+          return null;
+        }
 
-        return taskId;
+        if (project.type === "system" || project.userId !== userId) {
+          return null;
+        }
+
+        await ctx.db.delete(projectId);
+        return projectId;
       }
 
       return null;
@@ -96,24 +108,54 @@ export const deleteProjectAndItsTasks = action({
   },
   handler: async (ctx, { projectId }) => {
     try {
-      const allTasks = await ctx.runQuery(api.todos.getTodosByProjectId, {
+      const project = await ctx.runQuery(apiRef.projects.getProjectByProjectId, {
         projectId,
       });
 
-      const promises = Promise.allSettled(
+      if (!project) {
+        return { ok: false as const, reason: "Project not found" };
+      }
+
+      if (project.type === "system") {
+        return {
+          ok: false as const,
+          reason: "System projects are protected from deletion.",
+        };
+      }
+
+      const allTasks: Array<Doc<"todos">> =
+        (await ctx.runQuery(apiRef.todos.getTodosByProjectId, {
+          projectId,
+        })) ?? [];
+
+      const statuses: Array<PromiseSettledResult<unknown>> =
+        await Promise.allSettled(
         allTasks.map(async (task: Doc<"todos">) =>
-          ctx.runMutation(api.todos.deleteATodo, {
+          ctx.runMutation(apiRef.todos.deleteATodo, {
             taskId: task._id,
           })
         )
       );
-      const statuses = await promises;
 
-      await ctx.runMutation(api.projects.deleteProject, {
-        projectId,
-      });
+      const deletedProjectId = await ctx.runMutation(
+        apiRef.projects.deleteProject,
+        {
+          projectId,
+        }
+      );
+
+      if (!deletedProjectId) {
+        return { ok: false as const, reason: "Unable to delete project" };
+      }
+
+      return {
+        ok: true as const,
+        deletedTodos: statuses.filter((status) => status.status === "fulfilled")
+          .length,
+      };
     } catch (err) {
       console.error("Error deleting tasks and projects", err);
+      return { ok: false as const, reason: "Unexpected error" };
     }
   },
 });

@@ -146,12 +146,12 @@ function callMutation<Mutation extends FunctionReference<"mutation">>(
   return fetchMutation(mutation, addSecret(args) as any);
 }
 
-if (process.env.CONVEX_AUTH_ADAPTER_SECRET === undefined) {
-  throw new Error("Missing CONVEX_AUTH_ADAPTER_SECRET environment variable");
-}
-
 function addSecret(args: Record<string, any>) {
-  return { ...args, secret: process.env.CONVEX_AUTH_ADAPTER_SECRET! };
+  const secret = process.env.CONVEX_AUTH_ADAPTER_SECRET;
+  if (!secret) {
+    throw new Error("Missing CONVEX_AUTH_ADAPTER_SECRET environment variable");
+  }
+  return { ...args, secret };
 }
 
 function maybeUserFromDB(user: Doc<"users"> | null) {
