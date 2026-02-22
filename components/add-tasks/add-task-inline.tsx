@@ -60,8 +60,8 @@ const FormSchema = z.object({
   workflowStatus: z.string().optional().default("BACKLOG"),
   epicId: z.string().optional().default(""),
   personaId: z.string().optional().default(""),
-  projectId: z.string().min(1, { message: "Please select a Project" }),
-  labelId: z.string().min(1, { message: "Please select a Label" }),
+  projectId: z.string().optional().default(""),
+  labelId: z.string().optional().default(""),
 });
 
 type AddTaskFormValues = z.infer<typeof FormSchema>;
@@ -181,7 +181,17 @@ export default function AddTaskInline({
       workflowStatus,
     } = data;
 
-    if (!projectId || !labelId) {
+    const resolvedProjectId =
+      projectId?.trim() || defaultProjectId || projects[0]?._id || "";
+    const resolvedLabelId =
+      labelId?.trim() || defaultLabelId || labels[0]?._id || "";
+
+    if (!resolvedProjectId || !resolvedLabelId) {
+      toast({
+        title: "Could not create task",
+        description: "Project/Label default is not ready yet. Please try again.",
+        duration: 3000,
+      });
       return;
     }
 
@@ -233,8 +243,8 @@ export default function AddTaskInline({
               ? (personaId as Id<"personas">)
               : undefined,
           dueDate: moment(dueDate).valueOf(),
-          projectId: projectId as Id<"projects">,
-          labelId: labelId as Id<"labels">,
+          projectId: resolvedProjectId as Id<"projects">,
+          labelId: resolvedLabelId as Id<"labels">,
           payload,
         });
       } else {
@@ -254,8 +264,8 @@ export default function AddTaskInline({
               ? (personaId as Id<"personas">)
               : undefined,
           dueDate: moment(dueDate).valueOf(),
-          projectId: projectId as Id<"projects">,
-          labelId: labelId as Id<"labels">,
+          projectId: resolvedProjectId as Id<"projects">,
+          labelId: resolvedLabelId as Id<"labels">,
           payload,
         });
       }
@@ -311,11 +321,13 @@ export default function AddTaskInline({
     setIsResolvingPriority(true);
 
     try {
+      const resolvedProjectId =
+        data.projectId?.trim() || defaultProjectId || projects[0]?._id || undefined;
       const suggestion = await suggestPriorityForTask({
         taskName: data.taskName,
         description: data.description,
         dueDate: moment(data.dueDate).valueOf(),
-        projectId: data.projectId,
+        projectId: resolvedProjectId,
       });
 
       setPendingTaskData(data);
