@@ -983,6 +983,31 @@ export const api = {
       return data?.id ?? null;
     },
 
+    async updateTodoPriority({
+      taskId,
+      priority,
+    }: {
+      taskId: Id<"todos">;
+      priority: PriorityQuadrant;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+
+      const normalizedPriority = normalizePriorityQuadrant(priority);
+      const { data, error } = await supabase
+        .from("todos")
+        .update({
+          priority_quadrant: normalizedPriority,
+          priority: QUADRANT_TO_LEGACY_PRIORITY[normalizedPriority],
+        })
+        .eq("id", taskId)
+        .eq("user_id", user.id)
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      return data?.id ?? null;
+    },
+
     async createATodo({
       taskName,
       description,
