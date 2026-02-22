@@ -2,6 +2,11 @@
 
 import { createClient } from "@/lib/supabase/client";
 import {
+  DEFAULT_APP_LOCALE,
+  normalizeAppLocale,
+  type AppLocale,
+} from "@/lib/i18n";
+import {
   PRIORITY_QUADRANTS,
   QUADRANT_TO_LEGACY_PRIORITY,
   isDoneStatus,
@@ -364,6 +369,15 @@ function toPersonaDoc(row: PersonaRow): PersonaDoc {
 function toUserFeatureSettingsDoc(
   row: UserFeatureSettingsRow
 ): UserFeatureSettingsDoc {
+  const enabledModulesSource =
+    row.enabled_modules && typeof row.enabled_modules === "object"
+      ? (row.enabled_modules as Record<string, unknown>)
+      : {};
+  const locale = normalizeAppLocale(
+    enabledModulesSource.locale,
+    DEFAULT_APP_LOCALE
+  );
+
   const taskPropertyVisibility =
     row.task_property_visibility &&
     typeof row.task_property_visibility === "object"
@@ -380,7 +394,8 @@ function toUserFeatureSettingsDoc(
   return {
     _id: row.user_id,
     userId: row.user_id,
-    enabledModules: normalizeTaskModuleFlags(row.enabled_modules),
+    locale,
+    enabledModules: normalizeTaskModuleFlags(enabledModulesSource),
     taskPropertyVisibility,
     sidebarModules: Array.isArray(row.sidebar_modules)
       ? row.sidebar_modules
@@ -876,6 +891,128 @@ async function ensureDefaultProjectAndLabel() {
   }
 }
 
+function normalizeDueDateInput(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return Math.trunc(parsed);
+    }
+  }
+
+  return Date.now();
+}
+
+async function resolveTaskContainerIds({
+  userId,
+  projectId,
+  labelId,
+}: {
+  userId: string;
+  projectId?: Id<"projects">;
+  labelId?: Id<"labels">;
+}) {
+  await ensureDefaultProjectAndLabel();
+
+  const selectedProjectId =
+    typeof projectId === "string" ? projectId.trim() : "";
+  const selectedLabelId = typeof labelId === "string" ? labelId.trim() : "";
+
+  let resolvedProjectId: string | null = null;
+  if (selectedProjectId) {
+    const { data, error } = await supabase
+      .from("projects")
+      .select("id,user_id,type")
+      .eq("id", selectedProjectId)
+      .maybeSingle();
+    if (error) throw error;
+
+    const row = data as ProjectRow | null;
+    if (row && (row.type === "system" || row.user_id === userId)) {
+      resolvedProjectId = row.id;
+    }
+  }
+
+  if (!resolvedProjectId) {
+    const { data, error } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("user_id", userId)
+      .order("name", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+
+    resolvedProjectId = data?.id ?? null;
+  }
+
+  if (!resolvedProjectId) {
+    const { data, error } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("type", "system")
+      .order("name", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+
+    resolvedProjectId = data?.id ?? null;
+  }
+
+  let resolvedLabelId: string | null = null;
+  if (selectedLabelId) {
+    const { data, error } = await supabase
+      .from("labels")
+      .select("id,user_id,type")
+      .eq("id", selectedLabelId)
+      .maybeSingle();
+    if (error) throw error;
+
+    const row = data as LabelRow | null;
+    if (row && (row.type === "system" || row.user_id === userId)) {
+      resolvedLabelId = row.id;
+    }
+  }
+
+  if (!resolvedLabelId) {
+    const { data, error } = await supabase
+      .from("labels")
+      .select("id")
+      .eq("user_id", userId)
+      .order("name", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+
+    resolvedLabelId = data?.id ?? null;
+  }
+
+  if (!resolvedLabelId) {
+    const { data, error } = await supabase
+      .from("labels")
+      .select("id")
+      .eq("type", "system")
+      .order("name", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+
+    resolvedLabelId = data?.id ?? null;
+  }
+
+  if (!resolvedProjectId || !resolvedLabelId) {
+    throw new Error("Default project/label is not ready yet. Please retry.");
+  }
+
+  return {
+    projectId: resolvedProjectId as Id<"projects">,
+    labelId: resolvedLabelId as Id<"labels">,
+  };
+}
+
 async function ensureUserFeatureSettings() {
   const { supabase, user } = await getSupabaseAndUser();
   if (!user) return null;
@@ -895,7 +1032,10 @@ async function ensureUserFeatureSettings() {
     .from("user_feature_settings")
     .insert({
       user_id: user.id,
-      enabled_modules: DEFAULT_TASK_MODULE_FLAGS,
+      enabled_modules: {
+        ...DEFAULT_TASK_MODULE_FLAGS,
+        locale: DEFAULT_APP_LOCALE,
+      },
       task_property_visibility: {
         persona: false,
         epic: false,
@@ -1277,10 +1417,12 @@ export const api = {
       enabledModules,
       taskPropertyVisibility,
       sidebarModules,
+      locale,
     }: {
       enabledModules?: Partial<TaskModuleFlags>;
       taskPropertyVisibility?: Record<string, boolean>;
       sidebarModules?: string[];
+      locale?: AppLocale;
     }) {
       const existingRow = await ensureUserFeatureSettings();
       if (!existingRow) return null;
@@ -1300,6 +1442,10 @@ export const api = {
         sidebarModules ??
         existingDoc.sidebarModules ??
         (mergedModules.persona ? ["personas"] : []);
+      const nextLocale = normalizeAppLocale(
+        locale,
+        normalizeAppLocale(existingDoc.locale, DEFAULT_APP_LOCALE)
+      );
 
       const { supabase, user } = await getSupabaseAndUser();
       if (!user) return null;
@@ -1307,7 +1453,10 @@ export const api = {
       const { data, error } = await supabase
         .from("user_feature_settings")
         .update({
-          enabled_modules: mergedModules,
+          enabled_modules: {
+            ...mergedModules,
+            locale: nextLocale,
+          },
           task_property_visibility: mergedTaskPropertyVisibility,
           sidebar_modules: nextSidebarModules,
         })
@@ -2556,9 +2705,9 @@ export const api = {
       workload?: number;
       epicId?: Id<"epics">;
       personaId?: Id<"personas">;
-      dueDate: number;
-      projectId: Id<"projects">;
-      labelId: Id<"labels">;
+      dueDate?: number;
+      projectId?: Id<"projects">;
+      labelId?: Id<"labels">;
       payload?: TaskPayload;
       embedding?: number[];
     }) {
@@ -2575,6 +2724,12 @@ export const api = {
         typeof workload === "number" && Number.isFinite(workload)
           ? Math.max(1, Math.min(100, Math.round(workload)))
           : null;
+      const normalizedDueDate = normalizeDueDateInput(dueDate);
+      const resolvedContainerIds = await resolveTaskContainerIds({
+        userId: user.id,
+        projectId,
+        labelId,
+      });
 
       const { data, error } = await supabase
         .from("todos")
@@ -2590,9 +2745,9 @@ export const api = {
           workload: normalizedWorkload,
           epic_id: epicId ?? null,
           persona_id: personaId ?? null,
-          due_date: dueDate,
-          project_id: projectId,
-          label_id: labelId,
+          due_date: normalizedDueDate,
+          project_id: resolvedContainerIds.projectId,
+          label_id: resolvedContainerIds.labelId,
           is_completed: isDoneStatus(normalizedStatus),
           payload: payload ?? {},
           embedding: embedding ?? null,
@@ -2627,9 +2782,9 @@ export const api = {
       workload?: number;
       epicId?: Id<"epics">;
       personaId?: Id<"personas">;
-      dueDate: number;
-      projectId: Id<"projects">;
-      labelId: Id<"labels">;
+      dueDate?: number;
+      projectId?: Id<"projects">;
+      labelId?: Id<"labels">;
       payload?: TaskPayload;
     }) {
       return api.todos.createATodo({
@@ -2778,9 +2933,9 @@ export const api = {
       workload?: number;
       epicId?: Id<"epics">;
       personaId?: Id<"personas">;
-      dueDate: number;
-      projectId: Id<"projects">;
-      labelId: Id<"labels">;
+      dueDate?: number;
+      projectId?: Id<"projects">;
+      labelId?: Id<"labels">;
       parentId: Id<"todos">;
       payload?: TaskPayload;
       embedding?: number[];
@@ -2798,6 +2953,12 @@ export const api = {
         typeof workload === "number" && Number.isFinite(workload)
           ? Math.max(1, Math.min(100, Math.round(workload)))
           : null;
+      const normalizedDueDate = normalizeDueDateInput(dueDate);
+      const resolvedContainerIds = await resolveTaskContainerIds({
+        userId: user.id,
+        projectId,
+        labelId,
+      });
 
       const { data, error } = await supabase
         .from("sub_todos")
@@ -2813,9 +2974,9 @@ export const api = {
           workload: normalizedWorkload,
           epic_id: epicId ?? null,
           persona_id: personaId ?? null,
-          due_date: dueDate,
-          project_id: projectId,
-          label_id: labelId,
+          due_date: normalizedDueDate,
+          project_id: resolvedContainerIds.projectId,
+          label_id: resolvedContainerIds.labelId,
           parent_id: parentId,
           is_completed: isDoneStatus(normalizedStatus),
           payload: payload ?? {},
@@ -2852,9 +3013,9 @@ export const api = {
       workload?: number;
       epicId?: Id<"epics">;
       personaId?: Id<"personas">;
-      dueDate: number;
-      projectId: Id<"projects">;
-      labelId: Id<"labels">;
+      dueDate?: number;
+      projectId?: Id<"projects">;
+      labelId?: Id<"labels">;
       parentId: Id<"todos">;
       payload?: TaskPayload;
     }) {

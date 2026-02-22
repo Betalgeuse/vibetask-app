@@ -34,11 +34,13 @@ export default function KanbanColumn({
   column,
   title,
   subtitle,
+  emptyStateText = "No tasks",
   items,
 }: {
   column: KanbanColumnKey;
   title: string;
   subtitle: string;
+  emptyStateText?: string;
   items: Array<Doc<"todos">>;
 }) {
   return (
@@ -62,7 +64,7 @@ export default function KanbanColumn({
         {items.length > 0 ? (
           <Todos items={items} />
         ) : (
-          <p className="text-sm text-foreground/60 py-2">No tasks</p>
+          <p className="text-sm text-foreground/60 py-2">{emptyStateText}</p>
         )}
         <QuickTaskInput defaultValues={COLUMN_QUICK_TASK_DEFAULTS[column]} />
       </div>

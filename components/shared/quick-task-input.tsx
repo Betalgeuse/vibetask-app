@@ -98,15 +98,6 @@ export default function QuickTaskInput({
       return;
     }
 
-    if (!defaultProjectId || !defaultLabelId) {
-      toast({
-        title: "Preparing defaults...",
-        description: "Please wait a moment and try again.",
-        duration: 2500,
-      });
-      return;
-    }
-
     const dueDate = Date.now();
     const priority = defaultValues.priority ?? "doFirst";
     const status: TodoStatus =

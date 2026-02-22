@@ -4,6 +4,11 @@ import { useMemo } from "react";
 import { useQuery, useMutation } from "@/lib/supabase/hooks";
 import { api } from "@/lib/supabase/api";
 import { Doc } from "@/lib/supabase/types";
+import {
+  DEFAULT_APP_LOCALE,
+  getLocaleMessages,
+  normalizeAppLocale,
+} from "@/lib/i18n";
 import { AddTaskWrapper } from "../add-tasks/add-task-button";
 import QuickTaskInput from "../shared/quick-task-input";
 import { Tag } from "lucide-react";
@@ -100,6 +105,7 @@ interface DroppableQuadrantProps {
   quadrantKey: EisenhowerQuadrantKey;
   title: string;
   subtitle: string;
+  emptyStateText?: string;
   items: Array<Doc<"todos">>;
   labelsById: Map<string, Doc<"labels">>;
   onCheckTask: (task: Doc<"todos">) => void;
@@ -109,6 +115,7 @@ function DroppableQuadrant({
   quadrantKey,
   title,
   subtitle,
+  emptyStateText = "No tasks",
   items,
   labelsById,
   onCheckTask,
@@ -136,7 +143,7 @@ function DroppableQuadrant({
             />
           ))
         ) : (
-          <p className="text-sm text-foreground/60 py-2">No tasks</p>
+          <p className="text-sm text-foreground/60 py-2">{emptyStateText}</p>
         )}
         <div className="pt-2">
           <QuickTaskInput defaultValues={{ priority: quadrantKey }} />
@@ -149,9 +156,13 @@ function DroppableQuadrant({
 export default function Eisenhower() {
   const { toast } = useToast();
 
+  const settings = useQuery(api.userFeatureSettings.getMySettings);
   const inCompleteTodosQuery = useQuery(api.todos.inCompleteTodos);
   const quadrantsQuery = useQuery(api.todos.inCompleteTodosByEisenhowerQuadrant);
   const labelsQuery = useQuery(api.labels.getLabels);
+  const locale = normalizeAppLocale(settings?.locale, DEFAULT_APP_LOCALE);
+  const messages = useMemo(() => getLocaleMessages(locale), [locale]);
+  const eisenhowerMessages = messages.eisenhower;
 
   const checkATodo = useMutation(api.todos.checkATodo);
   const unCheckATodo = useMutation(api.todos.unCheckATodo);
@@ -216,8 +227,8 @@ export default function Eisenhower() {
     } else {
       await checkATodo({ taskId: task._id });
       toast({
-        title: "✅ Task completed",
-        description: "You're a rockstar",
+        title: eisenhowerMessages.completedTitle,
+        description: eisenhowerMessages.completedDescription,
         duration: 3000,
       });
     }
@@ -226,27 +237,34 @@ export default function Eisenhower() {
   return (
     <div className="xl:px-40">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <h1 className="text-lg font-semibold md:text-2xl">Eisenhower Matrix</h1>
+        <h1 className="text-lg font-semibold md:text-2xl">
+          {eisenhowerMessages.title}
+        </h1>
         <div className="flex items-center gap-2 flex-wrap">
           <ProjectionSwitcher projectionKind="matrix" />
           <AddTaskWrapper />
         </div>
       </div>
       <p className="text-sm text-foreground/70 mt-2 mb-4">
-        Tasks are grouped by priority quadrant.
+        {eisenhowerMessages.description}
       </p>
 
-      {isLoading && <p className="text-sm text-foreground/60 mb-4">Loading matrix...</p>}
+      {isLoading && (
+        <p className="text-sm text-foreground/60 mb-4">
+          {eisenhowerMessages.loading}
+        </p>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
-        {EISENHOWER_QUADRANT_META.map(({ key, title, subtitle }) => {
+        {EISENHOWER_QUADRANT_META.map(({ key }) => {
           const items = quadrants[key];
           return (
             <DroppableQuadrant
               key={key}
               quadrantKey={key}
-              title={title}
-              subtitle={subtitle}
+              title={eisenhowerMessages.quadrants[key].title}
+              subtitle={eisenhowerMessages.quadrants[key].subtitle}
+              emptyStateText={eisenhowerMessages.noTasks}
               items={items}
               labelsById={labelsById}
               onCheckTask={handleCheckTask}

@@ -1,11 +1,20 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   authorizeCalendarAction,
   disconnectCalendarAction,
 } from "@/actions/calendar-action";
+import { useToast } from "@/components/ui/use-toast";
+import {
+  APP_LOCALE_OPTIONS,
+  APP_LOCALE_STORAGE_KEY,
+  DEFAULT_APP_LOCALE,
+  getLocaleMessages,
+  normalizeAppLocale,
+  type AppLocale,
+} from "@/lib/i18n";
 import { api } from "@/lib/supabase/api";
 import { useMutation, useQuery } from "@/lib/supabase/hooks";
 import {
@@ -14,42 +23,35 @@ import {
   type TaskModuleKey,
 } from "@/lib/types/task-payload";
 
-const MODULE_LABELS: Record<TaskModuleKey, { title: string; description: string }> = {
-  persona: {
-    title: "Persona",
-    description:
-      "Enable custom persona property and persona navigation for your own taxonomy.",
-  },
-  epic: {
-    title: "Epic",
-    description: "Enable epic grouping field for tasks.",
-  },
-  story: {
-    title: "Story",
-    description: "Show context/background story field while creating tasks.",
-  },
-  workload: {
-    title: "Workload",
-    description: "Track expected effort/energy score on tasks.",
-  },
-  workflowStatus: {
-    title: "Workflow Status",
-    description: "Use Backlog/Week/Today style status on task payload.",
-  },
-  calendarSync: {
-    title: "Calendar Sync",
-    description: "Prepare for Google Calendar sync behavior (future integration).",
-  },
-};
-
 export default function SettingsModules() {
+  const { toast } = useToast();
   const settings = useQuery(api.userFeatureSettings.getMySettings);
   const upsertSettings = useMutation(api.userFeatureSettings.upsertMySettings);
+  const [locale, setLocale] = useState<AppLocale>(DEFAULT_APP_LOCALE);
+  const [isSavingLocale, setIsSavingLocale] = useState(false);
 
   const enabledModules = useMemo(
     () => settings?.enabledModules ?? DEFAULT_TASK_MODULE_FLAGS,
     [settings?.enabledModules]
   );
+  const messages = useMemo(() => getLocaleMessages(locale), [locale]);
+  const moduleLabels = messages.settings.modules;
+
+  useEffect(() => {
+    if (settings?.locale) {
+      const nextLocale = normalizeAppLocale(settings.locale, DEFAULT_APP_LOCALE);
+      setLocale(nextLocale);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(APP_LOCALE_STORAGE_KEY, nextLocale);
+      }
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      const storedLocale = window.localStorage.getItem(APP_LOCALE_STORAGE_KEY);
+      setLocale(normalizeAppLocale(storedLocale, DEFAULT_APP_LOCALE));
+    }
+  }, [settings?.locale]);
 
   const onToggle = async (key: TaskModuleKey, enabled: boolean) => {
     const nextModules = {
@@ -60,6 +62,7 @@ export default function SettingsModules() {
 
     await upsertSettings({
       enabledModules: nextModules,
+      locale,
       sidebarModules,
       taskPropertyVisibility: {
         persona: nextModules.persona,
@@ -71,17 +74,84 @@ export default function SettingsModules() {
     });
   };
 
+  const onLocaleChange = async (nextValue: string) => {
+    const nextLocale = normalizeAppLocale(nextValue, locale);
+    if (nextLocale === locale) {
+      return;
+    }
+
+    const previousLocale = locale;
+    setLocale(nextLocale);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(APP_LOCALE_STORAGE_KEY, nextLocale);
+    }
+
+    setIsSavingLocale(true);
+
+    try {
+      await upsertSettings({ locale: nextLocale });
+    } catch (error) {
+      setLocale(previousLocale);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(APP_LOCALE_STORAGE_KEY, previousLocale);
+      }
+      toast({
+        title: messages.settings.languageSaveErrorTitle,
+        description:
+          error instanceof Error
+            ? error.message
+            : messages.settings.languageSaveErrorDescription,
+        duration: 3500,
+      });
+    } finally {
+      setIsSavingLocale(false);
+    }
+  };
+
   return (
     <div className="xl:px-40">
-      <h1 className="text-lg font-semibold md:text-2xl">Feature Settings</h1>
+      <h1 className="text-lg font-semibold md:text-2xl">
+        {messages.settings.featureTitle}
+      </h1>
       <p className="text-sm text-foreground/70 mt-2 mb-4">
-        Turn task properties on only when you want them. Hidden properties stay in
-        payload structure for future UX changes.
+        {messages.settings.featureDescription}
       </p>
+
+      <div className="rounded-lg border bg-card p-4 mb-4">
+        <p className="font-medium">{messages.settings.languageTitle}</p>
+        <p className="text-xs text-foreground/70 mt-1">
+          {messages.settings.languageDescription}
+        </p>
+        <div className="mt-3 max-w-xs">
+          <label className="mb-1 block text-xs font-medium text-foreground/80">
+            {messages.settings.languageLabel}
+          </label>
+          <select
+            value={locale}
+            disabled={isSavingLocale}
+            onChange={(event) => {
+              void onLocaleChange(event.target.value);
+            }}
+            className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+          >
+            {APP_LOCALE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          {isSavingLocale && (
+            <p className="mt-2 text-xs text-foreground/70">
+              {messages.settings.languageSaving}
+            </p>
+          )}
+        </div>
+      </div>
 
       <div className="rounded-lg border bg-card">
         {TASK_MODULE_KEYS.map((key) => {
-          const label = MODULE_LABELS[key];
+          const label = moduleLabels[key];
           const checked = enabledModules[key];
           return (
             <div
@@ -98,7 +168,7 @@ export default function SettingsModules() {
                         type="submit"
                         className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-accent"
                       >
-                        Connect Google Calendar
+                        {messages.settings.connectCalendar}
                       </button>
                     </form>
                     <form action={disconnectCalendarAction}>
@@ -106,7 +176,7 @@ export default function SettingsModules() {
                         type="submit"
                         className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-accent"
                       >
-                        Disconnect
+                        {messages.settings.disconnectCalendar}
                       </button>
                     </form>
                   </div>

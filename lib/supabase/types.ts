@@ -1,4 +1,5 @@
 import type { PriorityQuadrant, TodoStatus } from "@/lib/types/priority";
+import type { AppLocale } from "@/lib/i18n";
 import type {
   TaskModuleFlags,
   TaskPayload,
@@ -92,6 +93,7 @@ export interface PersonaDoc {
 export interface UserFeatureSettingsDoc {
   _id: Id<"userFeatureSettings">;
   userId: string;
+  locale: AppLocale;
   enabledModules: TaskModuleFlags;
   taskPropertyVisibility?: Record<string, boolean>;
   sidebarModules?: string[];

@@ -2,6 +2,14 @@
 import {
   signInWithGoogleAction,
 } from "@/actions/auth-action";
+import {
+  APP_LOCALE_OPTIONS,
+  APP_LOCALE_STORAGE_KEY,
+  DEFAULT_APP_LOCALE,
+  getLocaleMessages,
+  normalizeAppLocale,
+  type AppLocale,
+} from "@/lib/i18n";
 import clsx from "clsx";
 import { Loader, StepForward } from "lucide-react";
 import Image from "next/image";
@@ -11,12 +19,24 @@ import { useFormStatus } from "react-dom";
 
 export default function LoginForm() {
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [locale, setLocale] = useState<AppLocale>(DEFAULT_APP_LOCALE);
+  const messages = getLocaleMessages(locale);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setError(params.get("error"));
-    setMessage(params.get("message"));
+
+    const storedLocale = window.localStorage.getItem(APP_LOCALE_STORAGE_KEY);
+    const resolvedLocale = normalizeAppLocale(
+      storedLocale || window.navigator.language,
+      DEFAULT_APP_LOCALE
+    );
+
+    setLocale(resolvedLocale);
+
+    if (!storedLocale) {
+      window.localStorage.setItem(APP_LOCALE_STORAGE_KEY, resolvedLocale);
+    }
   }, []);
 
   return (
@@ -43,7 +63,7 @@ export default function LoginForm() {
               rel="noreferrer"
               className="mb-6 cursor-pointer rounded-2xl border border-black px-4 py-1 text-xs text-slate-600 transition duration-300 ease-in-out hover:text-slate-700 sm:text-base text-center"
             >
-              Powered by{" "}
+              {messages.landing.poweredBy}{" "}
               <a
                 className="font-bold"
                 target="_blank"
@@ -60,33 +80,66 @@ export default function LoginForm() {
                 Gemini ✨
               </a>
             </span>
+            <div className="mb-4 flex items-center gap-2 text-xs sm:text-sm">
+              <label htmlFor="landing-locale-select" className="font-medium">
+                {messages.landing.language}
+              </label>
+              <select
+                id="landing-locale-select"
+                value={locale}
+                onChange={(event) => {
+                  const nextLocale = normalizeAppLocale(
+                    event.target.value,
+                    locale
+                  );
+                  setLocale(nextLocale);
+                  window.localStorage.setItem(
+                    APP_LOCALE_STORAGE_KEY,
+                    nextLocale
+                  );
+                }}
+                className="h-8 rounded-md border border-black/20 bg-white/80 px-2"
+              >
+                {APP_LOCALE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <h1 className="inline-block text-center text-4xl font-medium tracking-tighter text-dark lg:text-7xl">
-              An Open Source AI-Powered{" "}
+              {messages.landing.headingTop}{" "}
               <br className="hidden lg:inline-block" />
-              Todoist Clone
+              {messages.landing.headingBottom}
             </h1>
             <h2 className="mt-8 text-center text-xl font-light tracking-tight lg:text-3xl">
-              Dunnit seamlessly{" "}
-              <span className="font-bold px-1">organizes your tasks</span> and
+              {messages.landing.subheadingPrefix}{" "}
+              <span className="font-bold px-1">
+                {messages.landing.subheadingOrganize}
+              </span>{" "}
+              {messages.landing.subheadingConnector}
               <br className="hidden lg:inline-block" />
-              <span className="font-bold px-1">predicts what&apos;s next</span>
-              using AI.
+              <span className="font-bold px-1">
+                {messages.landing.subheadingPredict}
+              </span>{" "}
+              {messages.landing.subheadingSuffix}
             </h2>
-            {(error || message) && (
+            {error && (
               <div
                 className={clsx(
                   "mt-6 rounded-lg border px-4 py-2 text-sm text-center max-w-xl",
-                  error
-                    ? "border-red-300 bg-red-50 text-red-700"
-                    : "border-green-300 bg-green-50 text-green-700"
+                  "border-red-300 bg-red-50 text-red-700"
                 )}
               >
-                {error ?? message}
+                {error}
               </div>
             )}
             <div className="mt-12">
               <form action={signInWithGoogleAction}>
-                <GoogleSignInButton />
+                <GoogleSignInButton
+                  ctaLabel={messages.landing.getStarted}
+                  loadingLabel={messages.landing.loading}
+                />
               </form>
             </div>
           </div>
@@ -116,7 +169,7 @@ export default function LoginForm() {
       <div className="flex items-center justify-center">
         <footer className="bottom-0 container mx-auto my-5 flex flex-col items-center justify-between space-y-3 border-t space-x-4 px-3 pt-4 text-center sm:flex-row sm:pt-2 md:text-lg">
           <div>
-            Powered by{" "}
+            {messages.landing.poweredBy}{" "}
             <a
               href="https://supabase.com"
               target="_blank"
@@ -185,7 +238,13 @@ export default function LoginForm() {
   );
 }
 
-function GoogleSignInButton() {
+function GoogleSignInButton({
+  ctaLabel,
+  loadingLabel,
+}: {
+  ctaLabel: string;
+  loadingLabel: string;
+}) {
   const { pending } = useFormStatus();
 
   return (
@@ -197,11 +256,14 @@ function GoogleSignInButton() {
       <span className="flex items-center gap-1">
         {pending ? (
           <span className=" px-16">
-            <Loader className="w-5 h-5" />
+            <span className="flex items-center gap-2">
+              <Loader className="w-5 h-5" />
+              {loadingLabel}
+            </span>
           </span>
         ) : (
           <>
-            Get Started
+            {ctaLabel}
             <StepForward />
           </>
         )}

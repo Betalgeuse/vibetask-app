@@ -49,6 +49,11 @@ import {
 import { suggestPriorityForTask } from "@/lib/ai/suggest-priority";
 import PrioritySuggestionDialog from "./priority-suggestion-dialog";
 import {
+  DEFAULT_APP_LOCALE,
+  getLocaleMessages,
+  normalizeAppLocale,
+} from "@/lib/i18n";
+import {
   DEFAULT_TASK_MODULE_FLAGS,
   WORKFLOW_STATUSES,
   normalizeWorkflowStatus,
@@ -62,7 +67,7 @@ const FormSchema = z.object({
   }),
   description: z.string().optional().default(""),
   story: z.string().optional().default(""),
-  dueDate: z.date({ required_error: "A due date is required" }),
+  dueDate: z.date().optional(),
   priority: z.string().optional().default(""),
   workload: z.string().optional().default(""),
   workflowStatus: z.string().optional().default("BACKLOG"),
@@ -95,6 +100,9 @@ export default function AddTaskInline({
   const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
   const enabledModules =
     featureSettings?.enabledModules ?? DEFAULT_TASK_MODULE_FLAGS;
+  const locale = normalizeAppLocale(featureSettings?.locale, DEFAULT_APP_LOCALE);
+  const messages = useMemo(() => getLocaleMessages(locale), [locale]);
+  const taskMessages = messages.tasks;
 
   const defaultProjectId =
     myProjectId || parentTask?.projectId || projects[0]?._id || "";
@@ -133,7 +141,7 @@ export default function AddTaskInline({
     workflowStatus: parentTask?.workflowStatus || "BACKLOG",
     epicId: defaultEpicId,
     personaId: defaultPersonaId,
-    dueDate: new Date(),
+    dueDate: undefined,
     projectId: defaultProjectId,
     labelId: defaultLabelId,
   };
@@ -232,18 +240,13 @@ export default function AddTaskInline({
     } = data;
 
     const resolvedProjectId =
-      projectId?.trim() || defaultProjectId || projects[0]?._id || "";
+      projectId?.trim() || defaultProjectId || projects[0]?._id || undefined;
     const resolvedLabelId =
-      labelId?.trim() || defaultLabelId || labels[0]?._id || "";
-
-    if (!resolvedProjectId || !resolvedLabelId) {
-      toast({
-        title: "Could not create task",
-        description: "Project/Label default is not ready yet. Please try again.",
-        duration: 3000,
-      });
-      return;
-    }
+      labelId?.trim() || defaultLabelId || labels[0]?._id || undefined;
+    const resolvedDueDate =
+      dueDate instanceof Date && !Number.isNaN(dueDate.getTime())
+        ? moment(dueDate).valueOf()
+        : Date.now();
 
     const parsedWorkload =
       enabledModules.workload && workload?.trim()
@@ -265,7 +268,7 @@ export default function AddTaskInline({
       description: description || undefined,
       story: enabledModules.story ? story || undefined : undefined,
       priorityQuadrant: resolvedPriority,
-      dueDate: moment(dueDate).valueOf(),
+      dueDate: resolvedDueDate,
       workload: normalizedWorkload,
       workflowStatus: normalizedWorkflowStatus,
       epicId: enabledModules.epic ? epicId || undefined : undefined,
@@ -294,9 +297,9 @@ export default function AddTaskInline({
             enabledModules.persona && personaId
               ? (personaId as Id<"personas">)
               : undefined,
-          dueDate: moment(dueDate).valueOf(),
-          projectId: resolvedProjectId as Id<"projects">,
-          labelId: resolvedLabelId as Id<"labels">,
+          dueDate: resolvedDueDate,
+          projectId: resolvedProjectId as Id<"projects"> | undefined,
+          labelId: resolvedLabelId as Id<"labels"> | undefined,
           payload,
         });
       } else {
@@ -315,9 +318,9 @@ export default function AddTaskInline({
             enabledModules.persona && personaId
               ? (personaId as Id<"personas">)
               : undefined,
-          dueDate: moment(dueDate).valueOf(),
-          projectId: resolvedProjectId as Id<"projects">,
-          labelId: resolvedLabelId as Id<"labels">,
+          dueDate: resolvedDueDate,
+          projectId: resolvedProjectId as Id<"projects"> | undefined,
+          labelId: resolvedLabelId as Id<"labels"> | undefined,
           payload,
         });
       }
@@ -345,7 +348,7 @@ export default function AddTaskInline({
       }
 
       toast({
-        title: "🦄 Created a task!",
+        title: taskMessages.taskCreatedTitle,
         duration: 3000,
       });
 
@@ -361,10 +364,12 @@ export default function AddTaskInline({
       );
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Failed to create task.";
+        error instanceof Error
+          ? error.message
+          : taskMessages.failedToCreateTaskDescription;
 
       toast({
-        title: "Could not create task",
+        title: taskMessages.couldNotCreateTaskTitle,
         description: message,
         duration: 3500,
       });
@@ -392,8 +397,8 @@ export default function AddTaskInline({
       const normalizedPriority = normalizePriorityQuadrant(selectedPriority);
       if (!normalizedPriority) {
         toast({
-          title: "Could not resolve priority",
-          description: "Please choose a valid priority quadrant.",
+          title: taskMessages.couldNotResolvePriorityTitle,
+          description: taskMessages.invalidPriorityDescription,
           duration: 3000,
         });
         return;
@@ -410,7 +415,10 @@ export default function AddTaskInline({
       const suggestion = await suggestPriorityForTask({
         taskName: data.taskName,
         description: data.description,
-        dueDate: moment(data.dueDate).valueOf(),
+        dueDate:
+          data.dueDate instanceof Date && !Number.isNaN(data.dueDate.getTime())
+            ? moment(data.dueDate).valueOf()
+            : undefined,
         projectId: resolvedProjectId,
       });
 
@@ -423,14 +431,14 @@ export default function AddTaskInline({
 
       if (suggestion.usedFallback) {
         toast({
-          title: "Using default priority suggestion",
+          title: taskMessages.fallbackPriorityTitle,
           description: suggestion.reason,
           duration: 3000,
         });
       }
     } catch (_error) {
       const fallback = createFallbackPrioritySuggestion(
-        "AI suggestion failed. Using default priority suggestion."
+        taskMessages.fallbackPriorityDescription
       );
       setPendingTaskData({
         formValues: data,
@@ -485,7 +493,7 @@ export default function AddTaskInline({
                   <Input
                     id="taskName"
                     type="text"
-                    placeholder="Enter your Task name"
+                    placeholder={taskMessages.taskNamePlaceholder}
                     required
                     className="border-0 font-semibold text-lg"
                     {...field}
@@ -504,7 +512,7 @@ export default function AddTaskInline({
                     <Text className="ml-auto h-4 w-4 opacity-50" />
                     <Textarea
                       id="description"
-                      placeholder="Description"
+                      placeholder={taskMessages.descriptionPlaceholder}
                       className="resize-none"
                       {...field}
                     />
@@ -522,7 +530,7 @@ export default function AddTaskInline({
                   <FormControl>
                     <Textarea
                       id="story"
-                      placeholder="Story / context (optional)"
+                      placeholder={taskMessages.storyPlaceholder}
                       className="resize-none min-h-20"
                       {...field}
                     />
@@ -550,7 +558,7 @@ export default function AddTaskInline({
                           {field.value ? (
                             format(field.value, "PPP")
                           ) : (
-                            <span>Pick a date</span>
+                            <span>{taskMessages.pickDate}</span>
                           )}
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
@@ -582,15 +590,16 @@ export default function AddTaskInline({
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a Priority" />
+                        <SelectValue placeholder={taskMessages.selectPriority} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="none">No priority (use AI)</SelectItem>
+                      <SelectItem value="none">{taskMessages.noPriority}</SelectItem>
                       {PRIORITY_QUADRANT_OPTIONS.map(
-                        ({ quadrant, label, subtitle }) => (
+                        ({ quadrant }) => (
                           <SelectItem key={quadrant} value={quadrant}>
-                            {label} — {subtitle}
+                            {taskMessages.priorityQuadrants[quadrant].title} —{" "}
+                            {taskMessages.priorityQuadrants[quadrant].subtitle}
                           </SelectItem>
                         )
                       )}
@@ -606,13 +615,19 @@ export default function AddTaskInline({
               name="labelId"
               render={({ field }) => (
                 <FormItem>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    onValueChange={(value) =>
+                      field.onChange(value === "none" ? "" : value)
+                    }
+                    value={field.value?.trim() ? field.value : "none"}
+                  >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a Label" />
+                        <SelectValue placeholder={taskMessages.selectLabel} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value="none">{taskMessages.noLabel}</SelectItem>
                       {labels.map((label: Doc<"labels">, idx: number) => (
                         <SelectItem key={idx} value={label._id}>
                           {label?.name}
@@ -631,13 +646,19 @@ export default function AddTaskInline({
             name="projectId"
             render={({ field }) => (
               <FormItem>
-                <Select onValueChange={field.onChange} value={field.value}>
+                <Select
+                  onValueChange={(value) =>
+                    field.onChange(value === "none" ? "" : value)
+                  }
+                  value={field.value?.trim() ? field.value : "none"}
+                >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a Project" />
+                      <SelectValue placeholder={taskMessages.selectProject} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
+                    <SelectItem value="none">{taskMessages.noProject}</SelectItem>
                     {projects.map((project: Doc<"projects">, idx: number) => (
                       <SelectItem key={idx} value={project._id}>
                         {project?.name}
@@ -669,11 +690,11 @@ export default function AddTaskInline({
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Persona (optional)" />
+                            <SelectValue placeholder={taskMessages.personaOptional} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="none">None</SelectItem>
+                          <SelectItem value="none">{taskMessages.none}</SelectItem>
                           {personas.map((persona) => (
                             <SelectItem key={persona._id} value={persona._id}>
                               {persona.name}
@@ -701,11 +722,11 @@ export default function AddTaskInline({
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Epic (optional)" />
+                            <SelectValue placeholder={taskMessages.epicOptional} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="none">None</SelectItem>
+                          <SelectItem value="none">{taskMessages.none}</SelectItem>
                           {epics.map((epic) => (
                             <SelectItem key={epic._id} value={epic._id}>
                               {epic.name}
@@ -730,7 +751,7 @@ export default function AddTaskInline({
                           type="number"
                           min={1}
                           max={100}
-                          placeholder="Workload (1-100)"
+                          placeholder={taskMessages.workloadPlaceholder}
                           {...field}
                         />
                       </FormControl>
@@ -752,13 +773,15 @@ export default function AddTaskInline({
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Workflow status" />
+                            <SelectValue
+                              placeholder={taskMessages.workflowStatusPlaceholder}
+                            />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           {WORKFLOW_STATUSES.map((status) => (
                             <SelectItem key={status} value={status}>
-                              {status.replaceAll("_", " ")}
+                              {taskMessages.workflowStatuses[status]}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -773,7 +796,7 @@ export default function AddTaskInline({
           {customFieldDefinitions.length > 0 && (
             <div className="space-y-2 rounded-lg border border-dashed border-foreground/30 p-3">
               <p className="text-xs font-medium uppercase tracking-wide text-foreground/70">
-                Custom fields
+                {taskMessages.customFieldsTitle}
               </p>
               <div className="grid gap-2 md:grid-cols-2">
                 {customFieldDefinitions.map((definition) => (
@@ -793,7 +816,7 @@ export default function AddTaskInline({
                           disabled={isSubmitting}
                         />
                         <span className="text-xs text-foreground/70">
-                          Checked
+                          {taskMessages.checked}
                         </span>
                       </label>
                     ) : (
@@ -821,10 +844,12 @@ export default function AddTaskInline({
                 onClick={() => setShowAddTask(false)}
                 disabled={isSubmitting}
               >
-                Cancel
+                {taskMessages.cancel}
               </Button>
               <Button className="px-6" type="submit" disabled={isSubmitting}>
-                {isResolvingPriority ? "Checking priority..." : "Add task"}
+                {isResolvingPriority
+                  ? taskMessages.checkingPriority
+                  : taskMessages.addTask}
               </Button>
             </div>
           </CardFooter>
