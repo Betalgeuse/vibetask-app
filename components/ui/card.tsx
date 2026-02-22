@@ -1,4 +1,12 @@
+"use client"
+
 import * as React from "react"
+import {
+  Card as HeroCardPrimitive,
+  CardBody as HeroCardBodyPrimitive,
+  CardFooter as HeroCardFooterPrimitive,
+  CardHeader as HeroCardHeaderPrimitive,
+} from "@heroui/react"
 
 import { cn } from "@/lib/utils"
 
@@ -76,4 +84,21 @@ const CardFooter = React.forwardRef<
 ))
 CardFooter.displayName = "CardFooter"
 
-export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
+// TODO(heroui-migration): update callsites to Hero* exports, then replace legacy Card wrappers.
+const HeroCard = HeroCardPrimitive
+const HeroCardHeader = HeroCardHeaderPrimitive
+const HeroCardContent = HeroCardBodyPrimitive
+const HeroCardFooter = HeroCardFooterPrimitive
+
+export {
+  Card,
+  CardHeader,
+  CardFooter,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  HeroCard,
+  HeroCardHeader,
+  HeroCardContent,
+  HeroCardFooter,
+}

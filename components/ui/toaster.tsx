@@ -1,6 +1,8 @@
 "use client"
 
+import type { ComponentProps } from "react"
 import {
+  HeroToastProvider,
   Toast,
   ToastClose,
   ToastDescription,
@@ -32,4 +34,11 @@ export function Toaster() {
       <ToastViewport />
     </ToastProvider>
   )
+}
+
+type HeroToasterBridgeProps = ComponentProps<typeof HeroToastProvider>
+
+// TODO(heroui-migration): replace legacy <Toaster /> usage with this provider + heroAddToast calls.
+export function HeroToasterBridge(props: HeroToasterBridgeProps) {
+  return <HeroToastProvider {...props} />
 }

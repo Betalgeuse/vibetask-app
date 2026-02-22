@@ -1,54 +1,21 @@
-import NextAuth from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
-import { ConvexAdapter } from "./app/ConvexAdapter";
-import { importPKCS8, SignJWT } from "jose";
+/**
+ * Legacy Auth.js compatibility shim.
+ *
+ * This project now authenticates users with Supabase auth actions/routes.
+ * The exports below stay in place only to avoid import crashes in stale setups.
+ */
+const DEPRECATION_MESSAGE =
+  "Auth.js integration has been removed. Use Supabase auth actions instead.";
 
-function getRequiredEnv(name: string) {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing ${name} environment variable`);
-  }
-  return value;
+async function deprecatedAuthMethod(..._args: unknown[]): Promise<never> {
+  throw new Error(DEPRECATION_MESSAGE);
 }
 
-function getConvexSiteUrl() {
-  return getRequiredEnv("NEXT_PUBLIC_CONVEX_URL").replace(/\.cloud$/, ".site");
-}
+export const handlers = {
+  GET: deprecatedAuthMethod,
+  POST: deprecatedAuthMethod,
+};
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers: [
-    //google oauth
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      authorization: { params: { prompt: "consent" } },
-    }),
-  ],
-  adapter: ConvexAdapter,
-  callbacks: {
-    async session({ session }) {
-      const privateKey = await importPKCS8(
-        getRequiredEnv("CONVEX_AUTH_PRIVATE_KEY"),
-        "RS256"
-      );
-
-      const convexToken = await new SignJWT({
-        sub: session.userId,
-      })
-        .setProtectedHeader({ alg: "RS256" })
-        .setIssuedAt()
-        .setIssuer(getConvexSiteUrl())
-        .setAudience("convex")
-        .setExpirationTime("1h")
-        .sign(privateKey);
-
-      return { ...session, convexToken };
-    },
-  },
-});
-
-declare module "next-auth" {
-  interface Session {
-    convexToken: string;
-  }
-}
+export const signIn = deprecatedAuthMethod;
+export const signOut = deprecatedAuthMethod;
+export const auth = deprecatedAuthMethod;

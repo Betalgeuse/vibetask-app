@@ -1,6 +1,9 @@
+"use client"
+
 import * as React from "react"
 import * as LabelPrimitive from "@radix-ui/react-label"
 import { Slot } from "@radix-ui/react-slot"
+import { Form as HeroFormPrimitive } from "@heroui/react"
 import {
   Controller,
   ControllerProps,
@@ -14,6 +17,8 @@ import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 
 const Form = FormProvider
+// TODO(heroui-migration): migrate callers from react-hook-form FormProvider wrappers to HeroForm as needed.
+const HeroForm = HeroFormPrimitive
 
 type FormFieldContextValue<
   TFieldValues extends FieldValues = FieldValues,
@@ -166,6 +171,7 @@ FormMessage.displayName = "FormMessage"
 
 export {
   useFormField,
+  HeroForm,
   Form,
   FormItem,
   FormLabel,

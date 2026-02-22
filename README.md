@@ -1,6 +1,6 @@
 # Dunnit - Eisenhower Matrix AI Task Manager
 
-Built with Next.js 14 App Router, Supabase Auth (Google + Email magic link), Convex, React, ShadCN UI, React Hook Form, TypeScript, and Gemini/OpenAI compatible AI utilities.
+Built with Next.js 14 App Router, Supabase (Auth + Postgres), React, ShadCN UI, React Hook Form, TypeScript, and Gemini/OpenAI compatible AI utilities.
 
 
 ![Project Image](https://www.todovex.ai/og-image.png)
@@ -11,9 +11,9 @@ Built with Next.js 14 App Router, Supabase Auth (Google + Email magic link), Con
 - 📊 Eisenhower Matrix - Prioritize tasks by urgency and importance
 - 🎨 Beautiful components using Shadcn UI
 - 💅 Slick designs using TailwindCSS
-- 🌟 Database using Convex
+- 🌟 Database using Supabase Postgres
 - 🎭 Amazing icons thanks to Lucide React
-- 🔐 Auth using Next Auth aka Auth.js
+- 🔐 Auth using Supabase Auth (Google OAuth + Email magic link)
 - 📋 Typescript Runtime Validation using Zod
 - 🚀 Form Validation using React Hook Forms
 - ❤️ Add Task Dialog popup
@@ -47,7 +47,7 @@ To get started with this project, you need to do the following,
 
 ## Acknowledgements
 
-- [Convex](https://convex.dev) for making this project possible
+- [Supabase](https://supabase.com) for powering auth and database
 
 ## License
 

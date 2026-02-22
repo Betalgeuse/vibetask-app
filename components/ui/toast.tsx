@@ -2,12 +2,21 @@
 
 import * as React from "react";
 import * as ToastPrimitives from "@radix-ui/react-toast";
+import {
+  ToastProvider as HeroToastProviderPrimitive,
+  addToast as addHeroToastPrimitive,
+  closeAll as closeAllHeroToastsPrimitive,
+} from "@heroui/react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const ToastProvider = ToastPrimitives.Provider;
+// TODO(heroui-migration): switch app-level toast state from use-toast.ts to Hero UI's addToast API.
+const HeroToastProvider = HeroToastProviderPrimitive;
+const heroAddToast = addHeroToastPrimitive;
+const heroCloseAllToasts = closeAllHeroToastsPrimitive;
 
 const ToastViewport = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Viewport>,
@@ -127,4 +136,7 @@ export {
   ToastDescription,
   ToastClose,
   ToastAction,
+  HeroToastProvider,
+  heroAddToast,
+  heroCloseAllToasts,
 };

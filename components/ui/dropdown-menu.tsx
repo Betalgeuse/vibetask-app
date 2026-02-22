@@ -2,6 +2,13 @@
 
 import * as React from "react";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
+import {
+  Dropdown as HeroDropdownPrimitive,
+  DropdownItem as HeroDropdownItemPrimitive,
+  DropdownMenu as HeroDropdownMenuPrimitive,
+  DropdownSection as HeroDropdownSectionPrimitive,
+  DropdownTrigger as HeroDropdownTriggerPrimitive,
+} from "@heroui/react";
 import { Check, ChevronRight, Circle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -17,6 +24,13 @@ const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
 const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
+
+// TODO(heroui-migration): gradually move callsites to these Hero UI primitives.
+const HeroDropdown = HeroDropdownPrimitive;
+const HeroDropdownTrigger = HeroDropdownTriggerPrimitive;
+const HeroDropdownMenu = HeroDropdownMenuPrimitive;
+const HeroDropdownItem = HeroDropdownItemPrimitive;
+const HeroDropdownSection = HeroDropdownSectionPrimitive;
 
 const DropdownMenuSubTrigger = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.SubTrigger>,
@@ -197,4 +211,9 @@ export {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuRadioGroup,
+  HeroDropdown,
+  HeroDropdownTrigger,
+  HeroDropdownMenu,
+  HeroDropdownItem,
+  HeroDropdownSection,
 };

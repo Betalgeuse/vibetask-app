@@ -48,9 +48,9 @@ export default function LoginForm() {
               <a
                 className="font-bold"
                 target="_blank"
-href="https://convex.dev"
+                href="https://supabase.com"
               >
-                Convex{" "}
+                Supabase{" "}
               </a>
               and{" "}
               <a
@@ -135,11 +135,11 @@ href="https://convex.dev"
           <div>
             Powered by{" "}
             <a
-              href="https://convex.dev"
+              href="https://supabase.com"
               target="_blank"
               className="pr-1 font-bold transition hover:text-black/50"
             >
-              Convex
+              Supabase
             </a>
             and
             <a

@@ -2,12 +2,21 @@
 
 import * as React from "react"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
+import {
+  Popover as HeroPopoverPrimitive,
+  PopoverContent as HeroPopoverContentPrimitive,
+  PopoverTrigger as HeroPopoverTriggerPrimitive,
+} from "@heroui/react"
 
 import { cn } from "@/lib/utils"
 
 const Popover = PopoverPrimitive.Root
 
 const PopoverTrigger = PopoverPrimitive.Trigger
+// TODO(heroui-migration): move callsites to HeroPopover primitives and retire Radix wrappers.
+const HeroPopover = HeroPopoverPrimitive
+const HeroPopoverTrigger = HeroPopoverTriggerPrimitive
+const HeroPopoverContent = HeroPopoverContentPrimitive
 
 const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
@@ -28,4 +37,11 @@ const PopoverContent = React.forwardRef<
 ))
 PopoverContent.displayName = PopoverPrimitive.Content.displayName
 
-export { Popover, PopoverTrigger, PopoverContent }
+export {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  HeroPopover,
+  HeroPopoverTrigger,
+  HeroPopoverContent,
+}

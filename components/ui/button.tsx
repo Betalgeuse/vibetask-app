@@ -1,5 +1,8 @@
+"use client"
+
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
+import { button as heroButton } from "@heroui/theme"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
@@ -33,6 +36,31 @@ const buttonVariants = cva(
   }
 )
 
+type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>["variant"]>
+type ButtonSize = NonNullable<VariantProps<typeof buttonVariants>["size"]>
+
+const heroVariantMap: Record<
+  ButtonVariant,
+  {
+    color: "default" | "primary" | "danger"
+    variant: "solid" | "bordered" | "flat" | "light"
+  }
+> = {
+  default: { color: "primary", variant: "solid" },
+  destructive: { color: "danger", variant: "solid" },
+  outline: { color: "default", variant: "bordered" },
+  secondary: { color: "default", variant: "flat" },
+  ghost: { color: "default", variant: "light" },
+  link: { color: "primary", variant: "light" },
+}
+
+const heroSizeMap: Record<ButtonSize, "sm" | "md" | "lg"> = {
+  default: "md",
+  sm: "sm",
+  lg: "lg",
+  icon: "md",
+}
+
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
@@ -41,11 +69,46 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button"
+    const normalizedVariant = variant ?? "default"
+    const normalizedSize = size ?? "default"
+
+    if (asChild) {
+      return (
+        <Slot
+          className={cn(
+            buttonVariants({
+              variant: normalizedVariant,
+              size: normalizedSize,
+              className,
+            })
+          )}
+          ref={ref}
+          {...props}
+        />
+      )
+    }
+
+    const heroVariant = heroVariantMap[normalizedVariant]
+    const heroClasses = heroButton({
+      color: heroVariant.color,
+      variant: heroVariant.variant,
+      size: heroSizeMap[normalizedSize],
+      radius: "sm",
+      isIconOnly: normalizedSize === "icon",
+      fullWidth: false,
+    })
+
     return (
-      <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
+      <button
         ref={ref}
+        className={cn(
+          heroClasses,
+          buttonVariants({
+            variant: normalizedVariant,
+            size: normalizedSize,
+          }),
+          className
+        )}
         {...props}
       />
     )

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { Calendar as HeroCalendarPrimitive } from "@heroui/react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DayPicker } from "react-day-picker"
 
@@ -8,6 +9,9 @@ import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
+export type HeroCalendarProps = React.ComponentProps<typeof HeroCalendarPrimitive>
+// TODO(heroui-migration): migrate react-day-picker callsites to HeroCalendar where DateValue API fits.
+const HeroCalendar = HeroCalendarPrimitive
 
 function Calendar({
   className,
@@ -64,3 +68,4 @@ function Calendar({
 Calendar.displayName = "Calendar"
 
 export { Calendar }
+export { HeroCalendar }

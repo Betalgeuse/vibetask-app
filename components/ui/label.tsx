@@ -23,4 +23,7 @@ const Label = React.forwardRef<
 ))
 Label.displayName = LabelPrimitive.Root.displayName
 
-export { Label }
+// TODO(heroui-migration): Hero UI does not expose a standalone Label primitive yet; keep this alias stable for future swap.
+const HeroLabel = Label
+
+export { Label, HeroLabel }

@@ -1,9 +1,7 @@
-import type { Adapter } from "@auth/core/adapters";
-
 const DEPRECATION_MESSAGE =
-  "Auth.js + Convex adapter is deprecated in this project. Use Supabase auth flows instead.";
+  "Auth.js + Convex adapter path has been removed. Use Supabase auth flows instead.";
 
-async function deprecatedAdapterMethod(): Promise<never> {
+function deprecatedAdapterMethod(): never {
   throw new Error(DEPRECATION_MESSAGE);
 }
 
@@ -20,4 +18,4 @@ export const ConvexAdapter = new Proxy(
       return deprecatedAdapterMethod;
     },
   }
-) as Adapter;
+);

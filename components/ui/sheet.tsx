@@ -2,6 +2,13 @@
 
 import * as React from "react"
 import * as SheetPrimitive from "@radix-ui/react-dialog"
+import {
+  Drawer as HeroDrawerPrimitive,
+  DrawerBody as HeroDrawerBodyPrimitive,
+  DrawerContent as HeroDrawerContentPrimitive,
+  DrawerFooter as HeroDrawerFooterPrimitive,
+  DrawerHeader as HeroDrawerHeaderPrimitive,
+} from "@heroui/react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { X } from "lucide-react"
 
@@ -14,6 +21,13 @@ const SheetTrigger = SheetPrimitive.Trigger
 const SheetClose = SheetPrimitive.Close
 
 const SheetPortal = SheetPrimitive.Portal
+
+// TODO(heroui-migration): map legacy Sheet API to Hero Drawer once callsites are migrated.
+const HeroDrawer = HeroDrawerPrimitive
+const HeroDrawerContent = HeroDrawerContentPrimitive
+const HeroDrawerHeader = HeroDrawerHeaderPrimitive
+const HeroDrawerBody = HeroDrawerBodyPrimitive
+const HeroDrawerFooter = HeroDrawerFooterPrimitive
 
 const SheetOverlay = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Overlay>,
@@ -137,4 +151,9 @@ export {
   SheetFooter,
   SheetTitle,
   SheetDescription,
+  HeroDrawer,
+  HeroDrawerContent,
+  HeroDrawerHeader,
+  HeroDrawerBody,
+  HeroDrawerFooter,
 }
