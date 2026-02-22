@@ -7,8 +7,11 @@ import {
   CardFooter as HeroCardFooterPrimitive,
   CardHeader as HeroCardHeaderPrimitive,
 } from "@heroui/react"
+import { card as heroCardTheme } from "@heroui/theme"
 
 import { cn } from "@/lib/utils"
+
+const heroCardStyles = heroCardTheme({})
 
 const Card = React.forwardRef<
   HTMLDivElement,
@@ -17,7 +20,8 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-lg border bg-card text-card-foreground shadow-sm",
+      heroCardStyles.base(),
+      "rounded-lg border border-default-200/60 bg-card text-card-foreground shadow-sm",
       className
     )}
     {...props}
@@ -31,7 +35,7 @@ const CardHeader = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("flex flex-col space-y-1.5 p-6", className)}
+    className={cn(heroCardStyles.header(), "flex flex-col space-y-1.5 p-6", className)}
     {...props}
   />
 ))
@@ -68,7 +72,11 @@ const CardContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
+  <div
+    ref={ref}
+    className={cn(heroCardStyles.body(), "p-6 pt-0", className)}
+    {...props}
+  />
 ))
 CardContent.displayName = "CardContent"
 
@@ -78,13 +86,13 @@ const CardFooter = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("flex items-center p-6 pt-0", className)}
+    className={cn(heroCardStyles.footer(), "flex items-center p-6 pt-0", className)}
     {...props}
   />
 ))
 CardFooter.displayName = "CardFooter"
 
-// TODO(heroui-migration): update callsites to Hero* exports, then replace legacy Card wrappers.
+// Hero bridge exports are kept so new callsites can adopt native Hero UI primitives incrementally.
 const HeroCard = HeroCardPrimitive
 const HeroCardHeader = HeroCardHeaderPrimitive
 const HeroCardContent = HeroCardBodyPrimitive

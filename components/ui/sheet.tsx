@@ -9,10 +9,13 @@ import {
   DrawerFooter as HeroDrawerFooterPrimitive,
   DrawerHeader as HeroDrawerHeaderPrimitive,
 } from "@heroui/react"
+import { drawer as heroDrawerTheme } from "@heroui/theme"
 import { cva, type VariantProps } from "class-variance-authority"
 import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+
+const heroDrawerStyles = heroDrawerTheme({})
 
 const Sheet = SheetPrimitive.Root
 
@@ -22,7 +25,7 @@ const SheetClose = SheetPrimitive.Close
 
 const SheetPortal = SheetPrimitive.Portal
 
-// TODO(heroui-migration): map legacy Sheet API to Hero Drawer once callsites are migrated.
+// Hero bridge exports are kept so new callsites can adopt native Hero UI primitives incrementally.
 const HeroDrawer = HeroDrawerPrimitive
 const HeroDrawerContent = HeroDrawerContentPrimitive
 const HeroDrawerHeader = HeroDrawerHeaderPrimitive
@@ -45,7 +48,10 @@ const SheetOverlay = React.forwardRef<
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName
 
 const sheetVariants = cva(
-  "fixed z-50 gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+  cn(
+    heroDrawerStyles.base(),
+    "fixed z-50 gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500"
+  ),
   {
     variants: {
       side: {

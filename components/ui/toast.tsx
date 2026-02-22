@@ -13,7 +13,7 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ToastProvider = ToastPrimitives.Provider;
-// TODO(heroui-migration): switch app-level toast state from use-toast.ts to Hero UI's addToast API.
+// Bridge exports for gradual migration to Hero UI toast API.
 const HeroToastProvider = HeroToastProviderPrimitive;
 const heroAddToast = addHeroToastPrimitive;
 const heroCloseAllToasts = closeAllHeroToastsPrimitive;

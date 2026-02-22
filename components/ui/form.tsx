@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
 
 const Form = FormProvider
-// TODO(heroui-migration): migrate callers from react-hook-form FormProvider wrappers to HeroForm as needed.
+// Hero bridge export is kept so new callsites can adopt native Hero UI form primitives incrementally.
 const HeroForm = HeroFormPrimitive
 
 type FormFieldContextValue<

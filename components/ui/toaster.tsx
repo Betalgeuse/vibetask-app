@@ -38,7 +38,6 @@ export function Toaster() {
 
 type HeroToasterBridgeProps = ComponentProps<typeof HeroToastProvider>
 
-// TODO(heroui-migration): replace legacy <Toaster /> usage with this provider + heroAddToast calls.
 export function HeroToasterBridge(props: HeroToasterBridgeProps) {
   return <HeroToastProvider {...props} />
 }
