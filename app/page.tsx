@@ -1,6 +1,5 @@
 "use client";
 import {
-  signInWithEmailAction,
   signInWithGoogleAction,
 } from "@/actions/auth-action";
 import clsx from "clsx";
@@ -85,25 +84,9 @@ export default function LoginForm() {
                 {error ?? message}
               </div>
             )}
-            <div className="mt-12 flex flex-col gap-4">
+            <div className="mt-12">
               <form action={signInWithGoogleAction}>
                 <GoogleSignInButton />
-              </form>
-              <form
-                action={signInWithEmailAction}
-                className="mx-auto w-full max-w-sm rounded-xl border border-purple-200 bg-white/80 p-4"
-              >
-                <p className="mb-3 text-sm text-slate-700">
-                  Prefer email? We&apos;ll send you a secure sign-in link.
-                </p>
-                <input
-                  type="email"
-                  name="email"
-                  required
-                  placeholder="you@example.com"
-                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-purple-500"
-                />
-                <EmailSignInButton />
               </form>
             </div>
           </div>
@@ -214,20 +197,6 @@ function GoogleSignInButton() {
           </>
         )}
       </span>
-    </button>
-  );
-}
-
-function EmailSignInButton() {
-  const { pending } = useFormStatus();
-
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="mt-3 w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-60"
-    >
-      {pending ? "Sending link..." : "Email me a sign-in link"}
     </button>
   );
 }
