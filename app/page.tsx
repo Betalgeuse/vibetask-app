@@ -25,14 +25,16 @@ export default function LoginForm() {
     try {
       const supabase = createClient();
       const origin = window.location.origin.replace(/\/+$/, "");
+      const callbackUrl = `${origin}/auth/callback?next=/loggedin`;
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${origin}/auth/callback?next=/loggedin`,
+          redirectTo: callbackUrl,
           queryParams: {
             access_type: "offline",
             prompt: "consent",
           },
+          skipBrowserRedirect: true,
         },
       });
 
@@ -44,7 +46,10 @@ export default function LoginForm() {
         throw new Error("Unable to start Google sign-in");
       }
 
-      window.location.assign(data.url);
+      const oauthUrl = new URL(data.url);
+      oauthUrl.searchParams.set("redirect_to", callbackUrl);
+
+      window.location.assign(oauthUrl.toString());
       return;
     } catch (e) {
       const message =
