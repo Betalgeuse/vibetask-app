@@ -109,24 +109,15 @@ export default function LoginForm() {
           </div>
         </div>
       </div>
-      <div className="">
+      <div className="mt-10 px-4">
         <div className="flex items-center justify-center">
           <Image
-            alt="mobile"
+            alt="Dunnit logo"
             loading="lazy"
-            width="500"
-            height="600"
-            className="z-10 max-w-[400px]"
-            src={"/mobile.png"}
-          />
-          <Image
-            src="/desktop.png"
-            alt="laptop"
-            loading="lazy"
-            width="1000"
-            height="500"
-            data-nimg="1"
-            className="h-full -ml-28 mt-10 hidden lg:flex"
+            width={420}
+            height={420}
+            className="h-auto w-full max-w-[320px] md:max-w-[380px]"
+            src="/logo/dunnit.png"
           />
         </div>
       </div>
