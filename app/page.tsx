@@ -137,7 +137,7 @@ export default function LoginForm() {
             <a
               className="group"
               aria-label="Twitter"
-              href="https://twitter.com/kulkarniankita9"
+              href="https://x.com/hyper_friday"
             >
               <svg
                 aria-hidden="true"
