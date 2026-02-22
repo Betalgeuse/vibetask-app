@@ -86,6 +86,7 @@ type LabelRow = {
   id: string;
   user_id: string | null;
   name: string;
+  color: string | null;
   type: "user" | "system";
 };
 
@@ -130,6 +131,7 @@ function getEmptyQuadrants(): EisenhowerTodos {
 }
 
 const USER_CACHE_TTL_MS = 5_000;
+const DEFAULT_LABEL_COLOR = "#6366f1";
 const supabase = createClient();
 
 let cachedUser: User | null = null;
@@ -238,6 +240,7 @@ function toLabelDoc(row: LabelRow): LabelDoc {
     _id: row.id,
     userId: row.user_id,
     name: row.name,
+    color: row.color?.trim() || DEFAULT_LABEL_COLOR,
     type: row.type,
   };
 }
@@ -378,6 +381,7 @@ async function ensureDefaultProjectAndLabel() {
       const { error: insertLabelError } = await supabase.from("labels").insert({
         user_id: user.id,
         name: "General",
+        color: DEFAULT_LABEL_COLOR,
         type: "user",
       });
       if (insertLabelError) throw insertLabelError;
@@ -600,7 +604,13 @@ export const api = {
       return null;
     },
 
-    async createALabel({ name }: { name: string }) {
+    async createALabel({
+      name,
+      color,
+    }: {
+      name: string;
+      color?: string;
+    }) {
       const { supabase, user } = await getSupabaseAndUser();
       if (!user) return null;
 
@@ -608,11 +618,50 @@ export const api = {
         .from("labels")
         .insert({
           user_id: user.id,
-          name,
+          name: name.trim(),
+          color: color?.trim() || DEFAULT_LABEL_COLOR,
           type: "user",
         })
         .select("id")
         .single();
+      if (error) throw error;
+      return data?.id ?? null;
+    },
+
+    async updateALabel({
+      labelId,
+      name,
+      color,
+    }: {
+      labelId: Id<"labels">;
+      name?: string;
+      color?: string;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+
+      const updates: Record<string, unknown> = {};
+
+      if (typeof name === "string" && name.trim()) {
+        updates.name = name.trim();
+      }
+
+      if (typeof color === "string" && color.trim()) {
+        updates.color = color.trim();
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return labelId;
+      }
+
+      const { data, error } = await supabase
+        .from("labels")
+        .update(updates)
+        .eq("id", labelId)
+        .eq("user_id", user.id)
+        .select("id")
+        .maybeSingle();
+
       if (error) throw error;
       return data?.id ?? null;
     },

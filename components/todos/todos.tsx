@@ -1,12 +1,18 @@
 import React from "react";
 import Task from "./task";
-import { useMutation } from "@/lib/supabase/hooks";
+import { useMemo } from "react";
+import { useMutation, useQuery } from "@/lib/supabase/hooks";
 import { api } from "@/lib/supabase/api";
 import { Doc } from "@/lib/supabase/types";
 import { useToast } from "../ui/use-toast";
 
 export default function Todos({ items }: { items: Array<Doc<"todos">> }) {
   const { toast } = useToast();
+  const labelsQuery = useQuery(api.labels.getLabels);
+  const labelsById = useMemo(
+    () => new Map((labelsQuery ?? []).map((label) => [label._id, label])),
+    [labelsQuery]
+  );
 
   const checkATodo = useMutation(api.todos.checkATodo);
   const unCheckATodo = useMutation(api.todos.unCheckATodo);
@@ -27,6 +33,7 @@ export default function Todos({ items }: { items: Array<Doc<"todos">> }) {
     <Task
       key={task._id}
       data={task}
+      label={labelsById.get(task.labelId) ?? null}
       isCompleted={task.isCompleted}
       handleOnChange={() => handleOnChangeTodo(task)}
     />

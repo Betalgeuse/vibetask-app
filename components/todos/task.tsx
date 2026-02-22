@@ -14,11 +14,13 @@ function isSubTodo(
 
 export default function Task({
   data,
+  label,
   isCompleted,
   handleOnChange,
   showDetails = false,
 }: {
   data: Doc<"todos"> | Doc<"subTodos">;
+  label?: Doc<"labels"> | null;
   isCompleted: boolean;
   handleOnChange: any;
   showDetails?: boolean;
@@ -53,6 +55,18 @@ export default function Task({
                 >
                   {taskName}
                 </button>
+                {label ? (
+                  <span
+                    className="mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                    style={{
+                      borderColor: label.color,
+                      color: label.color,
+                    }}
+                  >
+                    <Tag className="h-3 w-3" />
+                    {label.name}
+                  </span>
+                ) : null}
                 {showDetails && (
                   <div className="flex gap-2">
                     <div className="flex items-center justify-center gap-1">

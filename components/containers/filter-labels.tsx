@@ -61,7 +61,19 @@ export default function FilterLabels() {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Tag className="h-4 w-4 text-primary" />
+                    <span
+                      className="inline-block h-3 w-3 rounded-full border"
+                      style={{
+                        backgroundColor: label.color,
+                        borderColor: label.color,
+                      }}
+                    />
+                    <Tag
+                      className="h-4 w-4"
+                      style={{
+                        color: label.color,
+                      }}
+                    />
                     <p className="font-medium">{label.name}</p>
                   </div>
                   <p className="text-xs text-foreground/70">{count} tasks</p>

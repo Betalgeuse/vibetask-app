@@ -21,6 +21,7 @@ export interface LabelDoc {
   _id: Id<"labels">;
   userId: string | null;
   name: string;
+  color: string;
   type: LabelType;
 }
 

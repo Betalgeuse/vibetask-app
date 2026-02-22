@@ -6,6 +6,7 @@ import { api } from "@/lib/supabase/api";
 import { Doc } from "@/lib/supabase/types";
 import { AddTaskWrapper } from "../add-tasks/add-task-button";
 import QuickTaskInput from "../shared/quick-task-input";
+import { Tag } from "lucide-react";
 import {
   EISENHOWER_QUADRANT_META,
   EisenhowerQuadrantKey,
@@ -51,10 +52,11 @@ function countQuadrantItems(quadrants: EisenhowerTodos) {
 
 interface TaskCardProps {
   task: Doc<"todos">;
+  label?: Doc<"labels"> | null;
   onCheck: () => void;
 }
 
-function TaskCard({ task, onCheck }: TaskCardProps) {
+function TaskCard({ task, label, onCheck }: TaskCardProps) {
   return (
     <div
       className="flex items-center space-x-2 border-b-2 p-2 border-gray-100 animate-in fade-in"
@@ -75,6 +77,18 @@ function TaskCard({ task, onCheck }: TaskCardProps) {
           >
             {task.taskName}
           </span>
+          {label ? (
+            <span
+              className="mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium"
+              style={{
+                borderColor: label.color,
+                color: label.color,
+              }}
+            >
+              <Tag className="h-3 w-3" />
+              {label.name}
+            </span>
+          ) : null}
         </div>
       </div>
     </div>
@@ -86,6 +100,7 @@ interface DroppableQuadrantProps {
   title: string;
   subtitle: string;
   items: Array<Doc<"todos">>;
+  labelsById: Map<string, Doc<"labels">>;
   onCheckTask: (task: Doc<"todos">) => void;
 }
 
@@ -94,6 +109,7 @@ function DroppableQuadrant({
   title,
   subtitle,
   items,
+  labelsById,
   onCheckTask,
 }: DroppableQuadrantProps) {
   return (
@@ -114,6 +130,7 @@ function DroppableQuadrant({
             <TaskCard
               key={task._id}
               task={task}
+              label={labelsById.get(task.labelId) ?? null}
               onCheck={() => onCheckTask(task)}
             />
           ))
@@ -133,6 +150,7 @@ export default function Eisenhower() {
 
   const inCompleteTodosQuery = useQuery(api.todos.inCompleteTodos);
   const quadrantsQuery = useQuery(api.todos.inCompleteTodosByEisenhowerQuadrant);
+  const labelsQuery = useQuery(api.labels.getLabels);
 
   const checkATodo = useMutation(api.todos.checkATodo);
   const unCheckATodo = useMutation(api.todos.unCheckATodo);
@@ -184,6 +202,11 @@ export default function Eisenhower() {
     return legacyQuadrants;
   }, [inCompleteTodosQuery, legacyQuadrants]);
 
+  const labelsById = useMemo(
+    () => new Map((labelsQuery ?? []).map((label) => [label._id, label])),
+    [labelsQuery]
+  );
+
   const isLoading = inCompleteTodosQuery === undefined && quadrantsQuery === undefined;
 
   const handleCheckTask = async (task: Doc<"todos">) => {
@@ -221,6 +244,7 @@ export default function Eisenhower() {
               title={title}
               subtitle={subtitle}
               items={items}
+              labelsById={labelsById}
               onCheckTask={handleCheckTask}
             />
           );
