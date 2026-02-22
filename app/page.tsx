@@ -23,16 +23,16 @@ export default function LoginForm() {
     <main className="bg-gradient-to-r from-purple-200 to-orange-200 h-full min-h-screen">
       <div className="container relative m-0 mx-auto py-10 md:px-10">
         <div className="max-width flex items-center justify-center lg:justify-between">
-          <Link className="flex items-center gap-1" href="/">
+          <Link className="flex items-center gap-3" href="/">
             <Image
               src="/logo/dunnit.png"
-              width={50}
-              height={50}
+              width={80}
+              height={80}
               alt="logo"
               priority
-              className="h-16 w-20 md:h-16 md:w-20"
+              className="h-20 w-24 md:h-24 md:w-28"
             />
-            <h1 className="text-xl hidden lg:flex font-medium text-gray-950 md:text-3xl">
+            <h1 className="text-2xl hidden lg:flex font-bold text-gray-950 md:text-4xl">
               Dunnit
             </h1>
           </Link>
@@ -92,15 +92,24 @@ export default function LoginForm() {
           </div>
         </div>
       </div>
-      <div className="mt-10 px-4">
+      <div className="">
         <div className="flex items-center justify-center">
           <Image
-            alt="Dunnit logo"
+            alt="mobile"
             loading="lazy"
-            width={420}
-            height={420}
-            className="h-auto w-full max-w-[320px] md:max-w-[380px]"
-            src="/logo/dunnit.png"
+            width="500"
+            height="600"
+            className="z-10 max-w-[400px]"
+            src={"/mobile.png"}
+          />
+          <Image
+            src="/desktop.png"
+            alt="laptop"
+            loading="lazy"
+            width="1000"
+            height="500"
+            data-nimg="1"
+            className="h-full -ml-28 mt-10 hidden lg:flex"
           />
         </div>
       </div>
