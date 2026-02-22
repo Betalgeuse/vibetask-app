@@ -4,7 +4,7 @@ import type { TaskModuleKey, WorkflowStatus } from "@/lib/types/task-payload";
 export const SUPPORTED_APP_LOCALES = ["en", "ko"] as const;
 export type AppLocale = (typeof SUPPORTED_APP_LOCALES)[number];
 
-export const DEFAULT_APP_LOCALE: AppLocale = "en";
+export const DEFAULT_APP_LOCALE: AppLocale = "ko";
 export const APP_LOCALE_STORAGE_KEY = "dunnit.locale";
 
 export const APP_LOCALE_OPTIONS: Array<{

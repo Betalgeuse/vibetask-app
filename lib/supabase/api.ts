@@ -715,6 +715,67 @@ function isV7FeatureUnavailableError(error: unknown): boolean {
   return V7_FALLBACK_KEYWORDS.some((keyword) => blob.includes(keyword));
 }
 
+function isMissingLabelColorColumnError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const typedError = error as {
+    code?: string;
+    message?: string;
+    details?: string | null;
+    hint?: string | null;
+  };
+
+  const blob = [typedError.message, typedError.details, typedError.hint]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ")
+    .toLowerCase();
+
+  if (!blob) {
+    return false;
+  }
+
+  return (
+    typedError.code === "42703" &&
+    blob.includes("color") &&
+    (blob.includes("labels") || blob.includes("public.labels"))
+  );
+}
+
+async function insertLabelWithOptionalColor({
+  userId,
+  name,
+  color,
+  type,
+}: {
+  userId: string;
+  name: string;
+  color: string;
+  type: "user" | "system";
+}) {
+  const withColor = await supabase.from("labels").insert({
+    user_id: userId,
+    name,
+    color,
+    type,
+  });
+
+  if (!withColor.error) {
+    return withColor;
+  }
+
+  if (!isMissingLabelColorColumnError(withColor.error)) {
+    return withColor;
+  }
+
+  return supabase.from("labels").insert({
+    user_id: userId,
+    name,
+    type,
+  });
+}
+
 function getCustomFieldValueColumns({
   fieldType,
   value,
@@ -872,8 +933,8 @@ async function ensureDefaultProjectAndLabel() {
     if (labelsError) throw labelsError;
 
     if (!existingLabels || existingLabels.length === 0) {
-      const { error: insertLabelError } = await supabase.from("labels").insert({
-        user_id: user.id,
+      const { error: insertLabelError } = await insertLabelWithOptionalColor({
+        userId: user.id,
         name: "General",
         color: DEFAULT_LABEL_COLOR,
         type: "user",
@@ -1045,7 +1106,7 @@ async function ensureUserFeatureSettings() {
         priority: true,
         workload: false,
         dueDate: true,
-        workflowStatus: true,
+        workflowStatus: false,
       },
       sidebar_modules: [],
     })
@@ -1268,18 +1329,44 @@ export const api = {
       const { supabase, user } = await getSupabaseAndUser();
       if (!user) return null;
 
-      const { data, error } = await supabase
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        return null;
+      }
+
+      const desiredColor = color?.trim() || DEFAULT_LABEL_COLOR;
+
+      const withColor = await supabase
         .from("labels")
         .insert({
           user_id: user.id,
-          name: name.trim(),
-          color: color?.trim() || DEFAULT_LABEL_COLOR,
+          name: trimmedName,
+          color: desiredColor,
           type: "user",
         })
         .select("id")
         .single();
-      if (error) throw error;
-      return data?.id ?? null;
+
+      if (!withColor.error) {
+        return withColor.data?.id ?? null;
+      }
+
+      if (!isMissingLabelColorColumnError(withColor.error)) {
+        throw withColor.error;
+      }
+
+      const withoutColor = await supabase
+        .from("labels")
+        .insert({
+          user_id: user.id,
+          name: trimmedName,
+          type: "user",
+        })
+        .select("id")
+        .single();
+
+      if (withoutColor.error) throw withoutColor.error;
+      return withoutColor.data?.id ?? null;
     },
 
     async updateALabel({
@@ -1308,7 +1395,7 @@ export const api = {
         return labelId;
       }
 
-      const { data, error } = await supabase
+      const withColorUpdate = await supabase
         .from("labels")
         .update(updates)
         .eq("id", labelId)
@@ -1316,8 +1403,32 @@ export const api = {
         .select("id")
         .maybeSingle();
 
-      if (error) throw error;
-      return data?.id ?? null;
+      if (!withColorUpdate.error) {
+        return withColorUpdate.data?.id ?? null;
+      }
+
+      if (
+        !isMissingLabelColorColumnError(withColorUpdate.error) ||
+        !("color" in updates)
+      ) {
+        throw withColorUpdate.error;
+      }
+
+      const { color: _ignoredColor, ...updatesWithoutColor } = updates;
+      if (Object.keys(updatesWithoutColor).length === 0) {
+        return labelId;
+      }
+
+      const withoutColorUpdate = await supabase
+        .from("labels")
+        .update(updatesWithoutColor)
+        .eq("id", labelId)
+        .eq("user_id", user.id)
+        .select("id")
+        .maybeSingle();
+
+      if (withoutColorUpdate.error) throw withoutColorUpdate.error;
+      return withoutColorUpdate.data?.id ?? null;
     },
   },
 

@@ -27,10 +27,7 @@ export default function LoginForm() {
     setError(params.get("error"));
 
     const storedLocale = window.localStorage.getItem(APP_LOCALE_STORAGE_KEY);
-    const resolvedLocale = normalizeAppLocale(
-      storedLocale || window.navigator.language,
-      DEFAULT_APP_LOCALE
-    );
+    const resolvedLocale = normalizeAppLocale(storedLocale, DEFAULT_APP_LOCALE);
 
     setLocale(resolvedLocale);
 

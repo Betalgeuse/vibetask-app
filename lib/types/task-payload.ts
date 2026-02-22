@@ -24,9 +24,9 @@ export type TaskModuleFlags = Record<TaskModuleKey, boolean>;
 export const DEFAULT_TASK_MODULE_FLAGS: TaskModuleFlags = {
   persona: false,
   epic: false,
-  story: true,
-  workload: true,
-  workflowStatus: true,
+  story: false,
+  workload: false,
+  workflowStatus: false,
   calendarSync: false,
 };
 
