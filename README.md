@@ -1,4 +1,4 @@
-# VibeTask - Supabase + Convex AI Task Manager
+# Dunnit - Eisenhower Matrix AI Task Manager
 
 Built with Next.js 14 App Router, Supabase Auth (Google + Email magic link), Convex, React, ShadCN UI, React Hook Form, TypeScript, and Gemini/OpenAI compatible AI utilities.
 
@@ -8,6 +8,7 @@ Built with Next.js 14 App Router, Supabase Auth (Google + Email magic link), Con
 ## Features
 - 🌐 Next.js & Server actions
 - 🤖 AI Suggest Missing Tasks and Sub-Tasks using Open AI
+- 📊 Eisenhower Matrix - Prioritize tasks by urgency and importance
 - 🎨 Beautiful components using Shadcn UI
 - 💅 Slick designs using TailwindCSS
 - 🌟 Database using Convex
@@ -40,14 +41,13 @@ To get started with this project, you need to do the following,
 - If you want to make changes and contribute to this project, you'll need to create a fork first.  Forking creates a copy of the original project in your own GitHub account. This lets you experiment with edits without affecting the main project.
 
 - Look for the "Fork" button in the top right corner of the project on GitHub. Clicking it will create a copy under your account with the same name.
-![image](https://github.com/kulkarniankita/todoist-clone-todovex/assets/2559673/f10c45ab-e2aa-4334-b32a-dcaa2873241a)
 
 - After forking the project, you can clone it just like you usually do.
 
 
 ## Acknowledgements
 
-- [Convex](https://convex.dev/c/todovex) for making this project possible
+- [Convex](https://convex.dev) for making this project possible
 
 ## License
 

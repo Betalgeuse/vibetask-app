@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="a" data-name="Dunnit Logo" xmlns="http://www.w3.org/2000/svg" width="200" height="60" viewBox="0 0 200 60">
+  <defs>
+    <style>
+      .logo-text {
+        fill: #1a1a2e;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 32px;
+        font-weight: 700;
+      }
+      .check-circle {
+        fill: #6366f1;
+      }
+      .check-mark {
+        fill: none;
+        stroke: #fff;
+        stroke-width: 3;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+    </style>
+  </defs>
+  <!-- Check circle -->
+  <circle class="check-circle" cx="28" cy="30" r="24"/>
+  <!-- Check mark -->
+  <polyline class="check-mark" points="16,30 24,38 40,22"/>
+  <!-- Dunnit text -->
+  <text class="logo-text" x="60" y="40">Dunnit</text>
+</svg>

@@ -1,20 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import {
-  DndContext,
-  DragOverlay,
-  useSensor,
-  useSensors,
-  PointerSensor,
-  DragStartEvent,
-  DragEndEvent,
-  DragOverEvent,
-  closestCenter,
-  useDroppable,
-  useDraggable,
-} from "@dnd-kit/core";
-import { useQuery, useMutation, invalidateSupabaseQueries } from "@/lib/supabase/hooks";
+import { useMemo } from "react";
+import { useQuery, useMutation } from "@/lib/supabase/hooks";
 import { api } from "@/lib/supabase/api";
 import { Doc } from "@/lib/supabase/types";
 import { AddTaskWrapper } from "../add-tasks/add-task-button";
@@ -25,7 +12,6 @@ import {
   normalizeEisenhowerQuadrantKey,
 } from "../kanban/metadata";
 import { useToast } from "../ui/use-toast";
-import type { PriorityQuadrant } from "@/lib/types/priority";
 
 type EisenhowerTodos = Record<EisenhowerQuadrantKey, Array<Doc<"todos">>>;
 
@@ -62,25 +48,15 @@ function countQuadrantItems(quadrants: EisenhowerTodos) {
   return Object.values(quadrants).reduce((total, items) => total + items.length, 0);
 }
 
-interface DraggableTaskProps {
+interface TaskCardProps {
   task: Doc<"todos">;
   onCheck: () => void;
 }
 
-function DraggableTask({ task, onCheck }: DraggableTaskProps) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: task._id,
-    data: { task },
-  });
-
+function TaskCard({ task, onCheck }: TaskCardProps) {
   return (
     <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      className={`flex items-center space-x-2 border-b-2 p-2 border-gray-100 animate-in fade-in cursor-grab active:cursor-grabbing ${
-        isDragging ? "opacity-50" : ""
-      }`}
+      className="flex items-center space-x-2 border-b-2 p-2 border-gray-100 animate-in fade-in"
     >
       <div className="flex gap-2 w-full">
         <input
@@ -105,34 +81,20 @@ function DraggableTask({ task, onCheck }: DraggableTaskProps) {
 }
 
 interface DroppableQuadrantProps {
-  id: EisenhowerQuadrantKey;
   title: string;
   subtitle: string;
   items: Array<Doc<"todos">>;
   onCheckTask: (task: Doc<"todos">) => void;
-  isOver: boolean;
 }
 
 function DroppableQuadrant({
-  id,
   title,
   subtitle,
   items,
   onCheckTask,
-  isOver,
 }: DroppableQuadrantProps) {
-  const { setNodeRef } = useDroppable({
-    id,
-    data: { quadrant: id },
-  });
-
   return (
-    <section
-      ref={setNodeRef}
-      className={`rounded-lg border bg-card p-4 text-card-foreground shadow-sm transition-colors ${
-        isOver ? "bg-primary/5 border-primary" : ""
-      }`}
-    >
+    <section className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
       <div className="flex items-center justify-between border-b border-gray-100 pb-2">
         <div>
           <h2 className="text-base font-semibold">{title}</h2>
@@ -146,7 +108,7 @@ function DroppableQuadrant({
       <div className="pt-2 min-h-[100px]">
         {items.length > 0 ? (
           items.map((task) => (
-            <DraggableTask
+            <TaskCard
               key={task._id}
               task={task}
               onCheck={() => onCheckTask(task)}
@@ -162,22 +124,12 @@ function DroppableQuadrant({
 
 export default function Eisenhower() {
   const { toast } = useToast();
-  const [activeTask, setActiveTask] = useState<Doc<"todos"> | null>(null);
-  const [overQuadrant, setOverQuadrant] = useState<EisenhowerQuadrantKey | null>(null);
 
   const inCompleteTodosQuery = useQuery(api.todos.inCompleteTodos);
   const quadrantsQuery = useQuery(api.todos.inCompleteTodosByEisenhowerQuadrant);
 
   const checkATodo = useMutation(api.todos.checkATodo);
   const unCheckATodo = useMutation(api.todos.unCheckATodo);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
-  );
 
   const legacyQuadrants = useMemo(
     () => normalizeQuadrantBuckets(quadrantsQuery),
@@ -228,60 +180,6 @@ export default function Eisenhower() {
 
   const isLoading = inCompleteTodosQuery === undefined && quadrantsQuery === undefined;
 
-  const handleDragStart = (event: DragStartEvent) => {
-    const taskId = String(event.active.id);
-    const task = inCompleteTodosQuery?.find((t) => t._id === taskId);
-    if (task) {
-      setActiveTask(task);
-    }
-  };
-
-  const handleDragOver = (event: DragOverEvent) => {
-    if (event.over) {
-      const quadrantId = String(event.over.id) as EisenhowerQuadrantKey;
-      if (EISENHOWER_QUADRANT_META.some((q) => q.key === quadrantId)) {
-        setOverQuadrant(quadrantId);
-      }
-    } else {
-      setOverQuadrant(null);
-    }
-  };
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveTask(null);
-    setOverQuadrant(null);
-
-    if (!over) return;
-
-    const taskId = String(active.id);
-    const newQuadrant = String(over.id) as PriorityQuadrant;
-
-    if (!EISENHOWER_QUADRANT_META.some((q) => q.key === newQuadrant)) return;
-
-    try {
-      await api.todos.updateTodoPriority({
-        taskId,
-        priority: newQuadrant,
-      });
-
-      invalidateSupabaseQueries();
-
-      toast({
-        title: "Task moved",
-        description: `Task moved to ${EISENHOWER_QUADRANT_META.find((q) => q.key === newQuadrant)?.title}`,
-        duration: 2000,
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to move task",
-        variant: "destructive",
-        duration: 3000,
-      });
-    }
-  };
-
   const handleCheckTask = async (task: Doc<"todos">) => {
     if (task.isCompleted) {
       await unCheckATodo({ taskId: task._id });
@@ -302,43 +200,25 @@ export default function Eisenhower() {
         <AddTaskWrapper />
       </div>
       <p className="text-sm text-foreground/70 mt-2 mb-4">
-        Drag and drop tasks between quadrants to change priority.
+        Tasks are grouped by priority quadrant.
       </p>
 
       {isLoading && <p className="text-sm text-foreground/60 mb-4">Loading matrix...</p>}
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="grid gap-4 md:grid-cols-2">
-          {EISENHOWER_QUADRANT_META.map(({ key, title, subtitle }) => {
-            const items = quadrants[key];
-            return (
-              <DroppableQuadrant
-                key={key}
-                id={key}
-                title={title}
-                subtitle={subtitle}
-                items={items}
-                onCheckTask={handleCheckTask}
-                isOver={overQuadrant === key}
-              />
-            );
-          })}
-        </div>
-
-        <DragOverlay>
-          {activeTask && (
-            <div className="bg-card border-2 border-primary rounded-lg p-2 shadow-lg cursor-grabbing">
-              <span className="text-sm font-normal">{activeTask.taskName}</span>
-            </div>
-          )}
-        </DragOverlay>
-      </DndContext>
+      <div className="grid gap-4 md:grid-cols-2">
+        {EISENHOWER_QUADRANT_META.map(({ key, title, subtitle }) => {
+          const items = quadrants[key];
+          return (
+            <DroppableQuadrant
+              key={key}
+              title={title}
+              subtitle={subtitle}
+              items={items}
+              onCheckTask={handleCheckTask}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
