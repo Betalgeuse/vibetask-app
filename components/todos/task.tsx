@@ -18,6 +18,16 @@ import AddTaskDialog from "../add-tasks/add-task-dialog";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Dialog, DialogTrigger } from "../ui/dialog";
+import { useToast } from "../ui/use-toast";
+
+type CalendarCreateEventResponse = {
+  connected?: boolean;
+  event?: {
+    id: string;
+    htmlLink: string | null;
+  };
+  error?: string;
+};
 
 function isSubTodo(
   data: Doc<"todos"> | Doc<"subTodos">
@@ -31,15 +41,18 @@ export default function Task({
   isCompleted,
   handleOnChange,
   showDetails = false,
+  canExportToCalendar = false,
 }: {
   data: Doc<"todos"> | Doc<"subTodos">;
   label?: Doc<"labels"> | null;
   isCompleted: boolean;
   handleOnChange: any;
   showDetails?: boolean;
+  canExportToCalendar?: boolean;
 }) {
+  const { toast } = useToast();
   const isSubTask = isSubTodo(data);
-  const { taskName, dueDate } = data;
+  const { taskName, description, dueDate } = data;
   const taskRef: TaskEntityRef = useMemo(
     () => ({
       taskKind: isSubTask ? "sub_todo" : "todo",
@@ -72,6 +85,7 @@ export default function Task({
 
   const [isEditingCustomFields, setIsEditingCustomFields] = useState(false);
   const [isSavingCustomFields, setIsSavingCustomFields] = useState(false);
+  const [isExportingToCalendar, setIsExportingToCalendar] = useState(false);
   const [customFieldDrafts, setCustomFieldDrafts] = useState<CustomFieldDraftValues>(
     {}
   );
@@ -165,6 +179,61 @@ export default function Task({
       console.error("Failed to save custom field values.", error);
     } finally {
       setIsSavingCustomFields(false);
+    }
+  }
+
+  async function onExportToCalendar() {
+    if (isExportingToCalendar) {
+      return;
+    }
+
+    setIsExportingToCalendar(true);
+
+    try {
+      const response = await fetch("/api/calendar/create-event", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          taskName,
+          description: description || "",
+          dueDate,
+          durationMinutes: 60,
+          timeZone:
+            typeof Intl !== "undefined"
+              ? Intl.DateTimeFormat().resolvedOptions().timeZone
+              : undefined,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | CalendarCreateEventResponse
+        | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.error?.trim() || "Failed to export task to Calendar.");
+      }
+
+      toast({
+        title: "Added to Google Calendar",
+        description:
+          payload?.event?.htmlLink?.trim()
+            ? "Calendar event created successfully."
+            : "Task exported as a calendar event.",
+        duration: 3000,
+      });
+    } catch (error) {
+      toast({
+        title: "Could not export task",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to export task to Google Calendar.",
+        duration: 3500,
+      });
+    } finally {
+      setIsExportingToCalendar(false);
     }
   }
 
@@ -326,6 +395,23 @@ export default function Task({
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {canExportToCalendar && (
+                <div className="mt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    disabled={isExportingToCalendar}
+                    onClick={() => {
+                      void onExportToCalendar();
+                    }}
+                  >
+                    {isExportingToCalendar ? "Exporting..." : "Add to Calendar"}
+                  </Button>
                 </div>
               )}
             </div>

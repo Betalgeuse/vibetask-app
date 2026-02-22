@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 import {
   authorizeCalendarAction,
@@ -179,6 +180,15 @@ export default function SettingsModules() {
                         {messages.settings.disconnectCalendar}
                       </button>
                     </form>
+                    <p className="basis-full text-xs text-foreground/70">
+                      {messages.settings.calendarSidebarHint}
+                    </p>
+                    <Link
+                      href="/loggedin/today"
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      {messages.settings.openTodayCalendar}
+                    </Link>
                   </div>
                 )}
               </div>

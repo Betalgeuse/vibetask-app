@@ -5,10 +5,21 @@ import { useForm } from "react-hook-form";
 import { Button } from "../ui/button";
 import { Form, FormControl, FormField, FormItem } from "../ui/form";
 import { Input } from "../ui/input";
+import { useMemo } from "react";
+import { api } from "@/lib/supabase/api";
+import { useQuery } from "@/lib/supabase/hooks";
+import {
+  DEFAULT_APP_LOCALE,
+  getLocaleMessages,
+  normalizeAppLocale,
+} from "@/lib/i18n";
 
 export default function SearchForm() {
   const form = useForm();
   const router = useRouter();
+  const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
+  const locale = normalizeAppLocale(featureSettings?.locale, DEFAULT_APP_LOCALE);
+  const messages = useMemo(() => getLocaleMessages(locale), [locale]);
 
   const onSubmit = async ({ searchText }: any) => {
     console.log("submitted", { searchText });
@@ -33,7 +44,7 @@ export default function SearchForm() {
                     id="searchText"
                     type="search"
                     required
-                    placeholder="Search tasks..."
+                    placeholder={messages.navigation.searchTasksPlaceholder}
                     className="w-full appearance-none bg-background pl-8 shadow-none h-10"
                     {...field}
                   />

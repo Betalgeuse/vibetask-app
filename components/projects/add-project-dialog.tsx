@@ -13,22 +13,39 @@ import { useForm } from "react-hook-form";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { useRouter } from "next/navigation";
-import { useMutation } from "@/lib/supabase/hooks";
+import { useMutation, useQuery } from "@/lib/supabase/hooks";
 import { api } from "@/lib/supabase/api";
 import { useToast } from "../ui/use-toast";
+import {
+  DEFAULT_APP_LOCALE,
+  getLocaleMessages,
+  normalizeAppLocale,
+} from "@/lib/i18n";
+import { useMemo } from "react";
 
 export default function AddProjectDialog() {
+  const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
+  const locale = normalizeAppLocale(featureSettings?.locale, DEFAULT_APP_LOCALE);
+  const messages = useMemo(() => getLocaleMessages(locale), [locale]);
+
   return (
     <Dialog>
       <DialogTrigger id="closeDialog">
-        <PlusIcon className="h-5 w-5" aria-label="Add a Project" />
+        <PlusIcon
+          className="h-5 w-5"
+          aria-label={messages.navigation.addProjectAriaLabel}
+        />
       </DialogTrigger>
-      <AddProjectDialogContent />
+      <AddProjectDialogContent messages={messages} />
     </Dialog>
   );
 }
 
-function AddProjectDialogContent() {
+function AddProjectDialogContent({
+  messages,
+}: {
+  messages: ReturnType<typeof getLocaleMessages>;
+}) {
   const form = useForm({ defaultValues: { name: "" } });
   const { toast } = useToast();
   const router = useRouter();
@@ -42,7 +59,7 @@ function AddProjectDialogContent() {
 
     if (projectId !== undefined) {
       toast({
-        title: "🚀 Successfully created a project!",
+        title: messages.dialogs.addProject.createdSuccessTitle,
         duration: 3000,
       });
       form.reset({ name: "" });
@@ -52,7 +69,7 @@ function AddProjectDialogContent() {
   return (
     <DialogContent className="max-w-xl lg:h-56 flex flex-col md:flex-row lg:justify-between text-right">
       <DialogHeader className="w-full">
-        <DialogTitle>Add a Project</DialogTitle>
+        <DialogTitle>{messages.dialogs.addProject.title}</DialogTitle>
         <DialogDescription className="capitalize">
           <Form {...form}>
             <form
@@ -68,7 +85,7 @@ function AddProjectDialogContent() {
                       <Input
                         id="name"
                         type="text"
-                        placeholder="Project name"
+                        placeholder={messages.dialogs.addProject.namePlaceholder}
                         required
                         className="border-0 font-semibold text-lg"
                         {...field}
@@ -77,7 +94,7 @@ function AddProjectDialogContent() {
                   </FormItem>
                 )}
               ></FormField>
-              <Button className="">Add</Button>
+              <Button className="">{messages.dialogs.addProject.submit}</Button>
             </form>
           </Form>
         </DialogDescription>

@@ -12,18 +12,27 @@ import { Calendar, ChevronDown, Flag, Hash, Tag, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { useMutation, useQuery } from "@/lib/supabase/hooks";
 import { api } from "@/lib/supabase/api";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Task from "../todos/task";
 import { AddTaskWrapper } from "./add-task-button";
 import SuggestMissingTasks from "./suggest-tasks";
 import { useToast } from "../ui/use-toast";
 import { PRIORITY_QUADRANT_META } from "@/lib/types/priority";
+import {
+  DEFAULT_APP_LOCALE,
+  getLocaleMessages,
+  normalizeAppLocale,
+} from "@/lib/i18n";
 
 export default function AddTaskDialog({ data }: { data: Doc<"todos"> }) {
   const { taskName, description, projectId, labelId, priority, dueDate, _id } =
     data;
   const project = useQuery(api.projects.getProjectByProjectId, { projectId });
   const label = useQuery(api.labels.getLabelByLabelId, { labelId });
+  const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
+  const locale = normalizeAppLocale(featureSettings?.locale, DEFAULT_APP_LOCALE);
+  const messages = useMemo(() => getLocaleMessages(locale), [locale]);
+  const dialogMessages = messages.dialogs.taskDetails;
 
   const { toast } = useToast();
 
@@ -45,22 +54,22 @@ export default function AddTaskDialog({ data }: { data: Doc<"todos"> }) {
   useEffect(() => {
     const data = [
       {
-        labelName: "Project",
+        labelName: dialogMessages.metadataProject,
         value: project?.name || "",
         icon: <Hash className="w-4 h-4 text-primary capitalize" />,
       },
       {
-        labelName: "Due date",
+        labelName: dialogMessages.metadataDueDate,
         value: format(dueDate || new Date(), "MMM dd yyyy"),
         icon: <Calendar className="w-4 h-4 text-primary capitalize" />,
       },
       {
-        labelName: "Priority",
+        labelName: dialogMessages.metadataPriority,
         value: priority ? PRIORITY_QUADRANT_META[priority].title : "",
         icon: <Flag className="w-4 h-4 text-primary capitalize" />,
       },
       {
-        labelName: "Label",
+        labelName: dialogMessages.metadataLabel,
         value: label?.name || "",
         icon: <Tag className="w-4 h-4 text-primary capitalize" />,
       },
@@ -68,29 +77,40 @@ export default function AddTaskDialog({ data }: { data: Doc<"todos"> }) {
     if (data) {
       setTodoDetails(data);
     }
-  }, [dueDate, label?.name, priority, project]);
+  }, [
+    dialogMessages.metadataDueDate,
+    dialogMessages.metadataLabel,
+    dialogMessages.metadataPriority,
+    dialogMessages.metadataProject,
+    dueDate,
+    label?.name,
+    priority,
+    project,
+  ]);
 
   const handleDeleteTodo = (e: any) => {
     e.preventDefault();
     const deletedId = deleteATodoMutation({ taskId: _id });
     if (deletedId !== undefined) {
       toast({
-        title: "🗑️ Successfully deleted",
+        title: dialogMessages.deletedSuccessTitle,
         duration: 3000,
       });
     }
   };
 
   return (
-    <DialogContent className="max-w-4xl lg:h-4/6 flex flex-col md:flex-row lg:justify-between text-right">
-      <DialogHeader className="w-full">
+    <DialogContent className="flex max-h-[calc(100vh-2rem)] w-[calc(100vw-1rem)] max-w-4xl flex-col overflow-hidden text-right md:w-full md:flex-row lg:h-4/6 lg:justify-between">
+      <DialogHeader className="w-full min-h-0">
         <DialogTitle>{taskName}</DialogTitle>
-        <DialogDescription>
+        <DialogDescription className="min-h-0 overflow-y-auto pr-1">
           <p className="my-2 capitalize">{description}</p>
           <div className="flex items-center gap-1 mt-12 border-b-2 border-gray-100 pb-2 flex-wrap sm:justify-between lg:gap-0 ">
             <div className="flex gap-1">
               <ChevronDown className="w-5 h-5 text-primary" />
-              <p className="font-bold flex text-sm text-gray-900">Sub-tasks</p>
+              <p className="font-bold flex text-sm text-gray-900">
+                {dialogMessages.subTasks}
+              </p>
             </div>
             <div>
               <SuggestMissingTasks
@@ -133,7 +153,7 @@ export default function AddTaskDialog({ data }: { data: Doc<"todos"> }) {
           </div>
         </DialogDescription>
       </DialogHeader>
-      <div className="flex flex-col gap-2 bg-gray-100 lg:w-1/2">
+      <div className="flex max-h-[35vh] flex-col gap-2 overflow-y-auto bg-gray-100 md:max-h-full md:w-1/2">
         {todoDetails.map(({ labelName, value, icon }, idx) => (
           <div
             key={`${value}-${idx}`}

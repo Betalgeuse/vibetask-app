@@ -9,6 +9,8 @@ import { useToast } from "../ui/use-toast";
 export default function Todos({ items }: { items: Array<Doc<"todos">> }) {
   const { toast } = useToast();
   const labelsQuery = useQuery(api.labels.getLabels);
+  const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
+  const isCalendarSyncEnabled = Boolean(featureSettings?.enabledModules?.calendarSync);
   const labelsById = useMemo(
     () => new Map((labelsQuery ?? []).map((label) => [label._id, label])),
     [labelsQuery]
@@ -36,6 +38,7 @@ export default function Todos({ items }: { items: Array<Doc<"todos">> }) {
       label={labelsById.get(task.labelId) ?? null}
       isCompleted={task.isCompleted}
       handleOnChange={() => handleOnChangeTodo(task)}
+      canExportToCalendar={isCalendarSyncEnabled}
     />
   ));
 }

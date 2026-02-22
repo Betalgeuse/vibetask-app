@@ -4,7 +4,7 @@ import {
   type AiSuggestionsResponse,
 } from "@/lib/supabase/api";
 import { useAction, useQuery } from "@/lib/supabase/hooks";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Id } from "@/lib/supabase/types";
 import { Loader } from "lucide-react";
 import { Button } from "../ui/button";
@@ -13,6 +13,11 @@ import AiRecommendDialog, {
   AiRecommendReferenceDraft,
   AiRecommendTaskDraft,
 } from "./ai-recommend-dialog";
+import {
+  DEFAULT_APP_LOCALE,
+  getLocaleMessages,
+  normalizeAppLocale,
+} from "@/lib/i18n";
 
 const DEFAULT_ENABLED_MODULES: AiSuggestionEnabledModules = {
   persona: false,
@@ -45,6 +50,10 @@ export default function SuggestMissingTasks({
     useState<AiSuggestionEnabledModules>(DEFAULT_ENABLED_MODULES);
   const [recommendations, setRecommendations] =
     useState<AiSuggestionsResponse["recommendations"]>([]);
+  const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
+  const locale = normalizeAppLocale(featureSettings?.locale, DEFAULT_APP_LOCALE);
+  const messages = useMemo(() => getLocaleMessages(locale), [locale]);
+  const suggestionMessages = messages.suggestions;
 
   const labels = useQuery(api.labels.getLabels) ?? [];
   const personas = useQuery(api.personas.getPersonas) ?? [];
@@ -61,13 +70,21 @@ export default function SuggestMissingTasks({
   const createAnEpic = useAction(api.epics.createAnEpic);
 
   const normalizeNameKey = (value: string) => value.trim().toLowerCase();
+  const formatSuggestionTemplate = (
+    template: string,
+    values: Record<string, string | number>
+  ) => {
+    return Object.entries(values).reduce((acc, [key, value]) => {
+      return acc.replace(new RegExp(`\\{${key}\\}`, "g"), String(value));
+    }, template);
+  };
 
   const requestSuggestions = async (
     autoCreate: boolean
   ): Promise<AiSuggestionsResponse> => {
     if (isSubTask) {
       if (!parentId) {
-        throw new Error("Missing parent task id for sub-task suggestions.");
+        throw new Error(suggestionMessages.missingParentForSubTask);
       }
 
       return suggestMissingSubTasks({
@@ -92,8 +109,8 @@ export default function SuggestMissingTasks({
 
       if (response.recommendations.length === 0) {
         toast({
-          title: "추천할 작업이 없습니다",
-          description: "현재 정보 기준으로 추가 추천이 없어요.",
+          title: suggestionMessages.noRecommendationsTitle,
+          description: suggestionMessages.noRecommendationsDescription,
           duration: 3000,
         });
         return;
@@ -104,10 +121,10 @@ export default function SuggestMissingTasks({
       const message =
         error instanceof Error
           ? error.message
-          : "AI 추천 작업을 불러오지 못했습니다.";
+          : suggestionMessages.requestFailureDescription;
 
       toast({
-        title: "AI 추천 실패",
+        title: suggestionMessages.requestFailureTitle,
         description: message,
         duration: 3500,
       });
@@ -124,13 +141,16 @@ export default function SuggestMissingTasks({
 
       if (response.created > 0) {
         toast({
-          title: `⚡ ${response.created}개 작업을 빠르게 추가했어요`,
+          title: formatSuggestionTemplate(
+            suggestionMessages.quickAddSuccessTitle,
+            { count: response.created }
+          ),
           duration: 3000,
         });
       } else {
         toast({
-          title: "빠른 추가 결과가 없습니다",
-          description: "생성할 추천 작업이 없어요.",
+          title: suggestionMessages.quickAddEmptyTitle,
+          description: suggestionMessages.quickAddEmptyDescription,
           duration: 3000,
         });
       }
@@ -139,10 +159,12 @@ export default function SuggestMissingTasks({
       setRecommendations([]);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "빠른 추가 중 오류가 발생했습니다.";
+        error instanceof Error
+          ? error.message
+          : suggestionMessages.quickAddFailureDescription;
 
       toast({
-        title: "빠른 추가 실패",
+        title: suggestionMessages.quickAddFailureTitle,
         description: message,
         duration: 3500,
       });
@@ -154,7 +176,7 @@ export default function SuggestMissingTasks({
   const handleCreateFromSelection = async (drafts: AiRecommendTaskDraft[]) => {
     if (drafts.length === 0) {
       toast({
-        title: "생성할 항목이 없습니다",
+        title: suggestionMessages.noItemsToCreateTitle,
         duration: 3000,
       });
       return;
@@ -176,7 +198,11 @@ export default function SuggestMissingTasks({
 
       const trimmedName = reference.name.trim();
       if (!trimmedName) {
-        throw new Error(`${index + 1}번째 추천의 라벨 이름을 입력해 주세요.`);
+        throw new Error(
+          formatSuggestionTemplate(suggestionMessages.labelNameRequiredTemplate, {
+            index: index + 1,
+          })
+        );
       }
 
       const key = normalizeNameKey(trimmedName);
@@ -195,7 +221,11 @@ export default function SuggestMissingTasks({
 
       const createdLabelId = await createALabel({ name: trimmedName });
       if (!createdLabelId) {
-        throw new Error(`새 라벨 생성에 실패했습니다: ${trimmedName}`);
+        throw new Error(
+          formatSuggestionTemplate(suggestionMessages.labelCreateFailureTemplate, {
+            name: trimmedName,
+          })
+        );
       }
 
       const typedLabelId = createdLabelId as Id<"labels">;
@@ -217,7 +247,14 @@ export default function SuggestMissingTasks({
 
       const trimmedName = reference.name.trim();
       if (!trimmedName) {
-        throw new Error(`${index + 1}번째 추천의 페르소나 이름을 입력해 주세요.`);
+        throw new Error(
+          formatSuggestionTemplate(
+            suggestionMessages.personaNameRequiredTemplate,
+            {
+              index: index + 1,
+            }
+          )
+        );
       }
 
       const key = normalizeNameKey(trimmedName);
@@ -236,7 +273,14 @@ export default function SuggestMissingTasks({
 
       const createdPersonaId = await createAPersona({ name: trimmedName });
       if (!createdPersonaId) {
-        throw new Error(`새 페르소나 생성에 실패했습니다: ${trimmedName}`);
+        throw new Error(
+          formatSuggestionTemplate(
+            suggestionMessages.personaCreateFailureTemplate,
+            {
+              name: trimmedName,
+            }
+          )
+        );
       }
 
       const typedPersonaId = createdPersonaId as Id<"personas">;
@@ -258,7 +302,11 @@ export default function SuggestMissingTasks({
 
       const trimmedName = reference.name.trim();
       if (!trimmedName) {
-        throw new Error(`${index + 1}번째 추천의 에픽 이름을 입력해 주세요.`);
+        throw new Error(
+          formatSuggestionTemplate(suggestionMessages.epicNameRequiredTemplate, {
+            index: index + 1,
+          })
+        );
       }
 
       const key = normalizeNameKey(trimmedName);
@@ -275,7 +323,11 @@ export default function SuggestMissingTasks({
 
       const createdEpicId = await createAnEpic({ name: trimmedName });
       if (!createdEpicId) {
-        throw new Error(`새 에픽 생성에 실패했습니다: ${trimmedName}`);
+        throw new Error(
+          formatSuggestionTemplate(suggestionMessages.epicCreateFailureTemplate, {
+            name: trimmedName,
+          })
+        );
       }
 
       const typedEpicId = createdEpicId as Id<"epics">;
@@ -295,7 +347,11 @@ export default function SuggestMissingTasks({
 
       const parsed = Number.parseInt(trimmed, 10);
       if (!Number.isFinite(parsed) || parsed <= 0) {
-        throw new Error(`${index + 1}번째 추천의 workload는 1 이상의 숫자여야 합니다.`);
+        throw new Error(
+          formatSuggestionTemplate(suggestionMessages.workloadInvalidTemplate, {
+            index: index + 1,
+          })
+        );
       }
 
       return Math.max(1, Math.min(100, parsed));
@@ -309,7 +365,11 @@ export default function SuggestMissingTasks({
         const taskNameValue = draft.taskName.trim();
 
         if (!taskNameValue) {
-          throw new Error(`${index + 1}번째 추천의 taskName을 입력해 주세요.`);
+          throw new Error(
+            formatSuggestionTemplate(suggestionMessages.taskNameRequiredTemplate, {
+              index: index + 1,
+            })
+          );
         }
 
         const labelId = await resolveLabelId(draft.label, index);
@@ -322,7 +382,7 @@ export default function SuggestMissingTasks({
 
         if (isSubTask) {
           if (!parentId) {
-            throw new Error("Missing parent task id for sub-task creation.");
+            throw new Error(suggestionMessages.missingParentForSubTaskCreation);
           }
 
           await createSubTodoEmbeddings({
@@ -357,7 +417,10 @@ export default function SuggestMissingTasks({
       }
 
       toast({
-        title: `✅ ${createdCount}개 추천 작업을 생성했어요`,
+        title: formatSuggestionTemplate(
+          suggestionMessages.createSelectedSuccessTitle,
+          { count: createdCount }
+        ),
         duration: 3000,
       });
 
@@ -367,10 +430,10 @@ export default function SuggestMissingTasks({
       const message =
         error instanceof Error
           ? error.message
-          : "선택 내용으로 작업 생성 중 오류가 발생했습니다.";
+          : suggestionMessages.createSelectedFailureDescription;
 
       toast({
-        title: "선택 내용 생성 실패",
+        title: suggestionMessages.createSelectedFailureTitle,
         description: message,
         duration: 4000,
       });
@@ -390,11 +453,11 @@ export default function SuggestMissingTasks({
       >
         {isLoadingSuggestMissingTasks ? (
           <div className="flex gap-2">
-            Loading Tasks (AI)
+            {suggestionMessages.loadingButtonLabel}
             <Loader className="h-5 w-5 text-primary" />
           </div>
         ) : (
-          "Suggest Missing Tasks (AI) 💖"
+          suggestionMessages.buttonLabel
         )}
       </Button>
 

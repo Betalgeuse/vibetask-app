@@ -3,7 +3,7 @@ const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const GOOGLE_EVENTS_ENDPOINT =
   "https://www.googleapis.com/calendar/v3/calendars/primary/events";
 
-const DEFAULT_SCOPE = "https://www.googleapis.com/auth/calendar.events.readonly";
+const DEFAULT_SCOPE = "https://www.googleapis.com/auth/calendar.events";
 
 type CalendarAuthEnv = {
   clientId: string;
@@ -60,6 +60,14 @@ export type CalendarEvent = {
   allDay: boolean;
 };
 
+export type CalendarEventCreateInput = {
+  summary: string;
+  description?: string | null;
+  start: string;
+  end: string;
+  timeZone?: string;
+};
+
 export function getCalendarScopes() {
   return [DEFAULT_SCOPE];
 }
@@ -114,6 +122,24 @@ export function buildGoogleCalendarAuthUrl(params?: {
   }
 
   return url.toString();
+}
+
+function normalizeCalendarEvent(event: GoogleCalendarEventRaw & { id: string }): CalendarEvent {
+  const start = event.start?.dateTime ?? event.start?.date ?? null;
+  const end = event.end?.dateTime ?? event.end?.date ?? null;
+  const allDay = Boolean(event.start?.date && !event.start?.dateTime);
+
+  return {
+    id: event.id,
+    summary: event.summary?.trim() || "(No title)",
+    description: event.description?.trim() || null,
+    location: event.location?.trim() || null,
+    hangoutLink: event.hangoutLink?.trim() || null,
+    htmlLink: event.htmlLink?.trim() || null,
+    start,
+    end,
+    allDay,
+  };
 }
 
 function toTokenErrorMessage(payload: CalendarTokenExchangeRaw | null, fallback: string) {
@@ -231,23 +257,51 @@ export async function fetchGoogleCalendarEvents(params: {
     .filter((event): event is GoogleCalendarEventRaw & { id: string } => {
       return typeof event.id === "string" && event.id.trim().length > 0;
     })
-    .map((event) => {
-      const start = event.start?.dateTime ?? event.start?.date ?? null;
-      const end = event.end?.dateTime ?? event.end?.date ?? null;
-      const allDay = Boolean(event.start?.date && !event.start?.dateTime);
-
-      return {
-        id: event.id,
-        summary: event.summary?.trim() || "(No title)",
-        description: event.description?.trim() || null,
-        location: event.location?.trim() || null,
-        hangoutLink: event.hangoutLink?.trim() || null,
-        htmlLink: event.htmlLink?.trim() || null,
-        start,
-        end,
-        allDay,
-      };
-    });
+    .map((event) => normalizeCalendarEvent(event));
 
   return { events };
+}
+
+export async function createGoogleCalendarEvent(params: {
+  accessToken: string;
+  event: CalendarEventCreateInput;
+}) {
+  const response = await fetch(GOOGLE_EVENTS_ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${params.accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      summary: params.event.summary,
+      description: params.event.description ?? undefined,
+      start: {
+        dateTime: params.event.start,
+        ...(params.event.timeZone ? { timeZone: params.event.timeZone } : {}),
+      },
+      end: {
+        dateTime: params.event.end,
+        ...(params.event.timeZone ? { timeZone: params.event.timeZone } : {}),
+      },
+    }),
+    cache: "no-store",
+  });
+
+  const payload = (await response.json().catch(() => null)) as
+    | (GoogleCalendarEventRaw & { error?: { message?: string } })
+    | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.error?.message || "Failed to create calendar event.");
+  }
+
+  const createdEvent = payload;
+
+  if (!createdEvent?.id || typeof createdEvent.id !== "string") {
+    throw new Error("Calendar event creation returned an invalid response.");
+  }
+
+  return {
+    event: normalizeCalendarEvent(createdEvent as GoogleCalendarEventRaw & { id: string }),
+  };
 }

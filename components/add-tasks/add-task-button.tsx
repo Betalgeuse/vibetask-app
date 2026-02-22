@@ -1,7 +1,14 @@
 import { Plus } from "lucide-react";
-import React, { Dispatch, SetStateAction, useState } from "react";
+import React, { Dispatch, SetStateAction, useMemo, useState } from "react";
 import AddTaskInline from "./add-task-inline";
 import { Doc, Id } from "@/lib/supabase/types";
+import { api } from "@/lib/supabase/api";
+import { useQuery } from "@/lib/supabase/hooks";
+import {
+  DEFAULT_APP_LOCALE,
+  getLocaleMessages,
+  normalizeAppLocale,
+} from "@/lib/i18n";
 
 export const AddTaskWrapper = ({
   parentTask,
@@ -11,6 +18,9 @@ export const AddTaskWrapper = ({
   projectId?: Id<"projects">;
 }) => {
   const [showAddTask, setShowAddTask] = useState(false);
+  const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
+  const locale = normalizeAppLocale(featureSettings?.locale, DEFAULT_APP_LOCALE);
+  const messages = useMemo(() => getLocaleMessages(locale), [locale]);
 
   return showAddTask ? (
     <AddTaskInline
@@ -21,7 +31,7 @@ export const AddTaskWrapper = ({
   ) : (
     <AddTaskButton
       onClick={() => setShowAddTask(true)}
-      title={parentTask?._id ? "Add sub-task" : "Add task"}
+      title={parentTask?._id ? messages.tasks.addSubTask : messages.tasks.addTask}
     />
   );
 };

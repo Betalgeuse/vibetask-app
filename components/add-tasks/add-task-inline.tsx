@@ -482,7 +482,7 @@ export default function AddTaskInline({
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className="space-y-2 border-2 p-2 border-gray-200 my-2 rounded-xl px-3 pt-4 border-foreground/20"
+          className="my-2 w-full max-w-full space-y-2 overflow-x-hidden rounded-xl border-2 border-foreground/20 border-gray-200 p-2 px-3 pt-4"
         >
           <FormField
             control={form.control}
@@ -539,19 +539,19 @@ export default function AddTaskInline({
               )}
             />
           )}
-          <div className="flex gap-2">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             <FormField
               control={form.control}
               name="dueDate"
               render={({ field }) => (
-                <FormItem className="flex flex-col">
+                <FormItem className="flex w-full flex-col">
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
                         <Button
                           variant={"outline"}
                           className={cn(
-                            "flex gap-2 w-[240px] pl-3 text-left font-normal",
+                            "flex w-full min-w-0 gap-2 pl-3 text-left font-normal sm:w-[240px]",
                             !field.value && "text-muted-foreground"
                           )}
                         >
@@ -581,7 +581,7 @@ export default function AddTaskInline({
               control={form.control}
               name="priority"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="w-full">
                   <Select
                     onValueChange={(value) =>
                       field.onChange(value === "none" ? "" : value)
@@ -614,7 +614,7 @@ export default function AddTaskInline({
               control={form.control}
               name="labelId"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="w-full">
                   <Select
                     onValueChange={(value) =>
                       field.onChange(value === "none" ? "" : value)
@@ -834,24 +834,25 @@ export default function AddTaskInline({
               </div>
             </div>
           )}
-          <CardFooter className="flex flex-col lg:flex-row lg:justify-between gap-2 border-t-2 pt-3">
-            <div className="w-full lg:w-1/4"></div>
-            <div className="flex gap-3 self-end">
-              <Button
-                className="bg-gray-300/40 text-gray-950 px-6 hover:bg-gray-300"
-                variant={"outline"}
-                type="button"
-                onClick={() => setShowAddTask(false)}
-                disabled={isSubmitting}
-              >
-                {taskMessages.cancel}
-              </Button>
-              <Button className="px-6" type="submit" disabled={isSubmitting}>
-                {isResolvingPriority
-                  ? taskMessages.checkingPriority
-                  : taskMessages.addTask}
-              </Button>
-            </div>
+          <CardFooter className="flex flex-col gap-2 border-t-2 pt-3 sm:flex-row sm:justify-end">
+            <Button
+              className="w-full bg-gray-300/40 px-6 text-gray-950 hover:bg-gray-300 sm:w-auto"
+              variant={"outline"}
+              type="button"
+              onClick={() => setShowAddTask(false)}
+              disabled={isSubmitting}
+            >
+              {taskMessages.cancel}
+            </Button>
+            <Button
+              className="w-full px-6 sm:w-auto"
+              type="submit"
+              disabled={isSubmitting}
+            >
+              {isResolvingPriority
+                ? taskMessages.checkingPriority
+                : taskMessages.addTask}
+            </Button>
           </CardFooter>
         </form>
       </Form>

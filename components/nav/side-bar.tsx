@@ -15,12 +15,17 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/supabase/api";
 import { useQuery } from "@/lib/supabase/hooks";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Hash, PlusIcon } from "lucide-react";
 import { Doc } from "@/lib/supabase/types";
 import { Dialog, DialogTrigger } from "../ui/dialog";
 import AddProjectDialog from "../projects/add-project-dialog";
 import AddLabelDialog from "../labels/add-label-dialog";
+import {
+  DEFAULT_APP_LOCALE,
+  getLocaleMessages,
+  normalizeAppLocale,
+} from "@/lib/i18n";
 
 interface MyListTitleType {
   [key: string]: string;
@@ -31,14 +36,69 @@ export default function SideBar() {
 
   const projectList = useQuery(api.projects.getProjects);
   const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
+  const locale = normalizeAppLocale(featureSettings?.locale, DEFAULT_APP_LOCALE);
+  const messages = useMemo(() => getLocaleMessages(locale), [locale]);
+  const navigationMessages = messages.navigation;
 
-  const LIST_OF_TITLE_IDS: MyListTitleType = {
-    primary: "",
-    projects: "My Projects",
-    productivity: "Productivity",
-  };
+  const LIST_OF_TITLE_IDS: MyListTitleType = useMemo(
+    () => ({
+      primary: "",
+      projects: navigationMessages.sectionTitleProjects,
+      productivity: navigationMessages.sectionTitleProductivity,
+    }),
+    [
+      navigationMessages.sectionTitleProductivity,
+      navigationMessages.sectionTitleProjects,
+    ]
+  );
 
-  const [navItems, setNavItems] = useState([...primaryNavItems]);
+  const getLocalizedNavItemName = useMemo(
+    () => (id: string | undefined, link: string, fallbackName: string) => {
+      if (id === "primary" || link === "/loggedin") {
+        return navigationMessages.itemInbox;
+      }
+      if (link === "/loggedin/today") {
+        return navigationMessages.itemToday;
+      }
+      if (link === "/loggedin/upcoming") {
+        return navigationMessages.itemUpcoming;
+      }
+      if (link === "/loggedin/kanban") {
+        return navigationMessages.itemKanban;
+      }
+      if (link === "/loggedin/eisenhower") {
+        return navigationMessages.itemEisenhower;
+      }
+      if (id === "filters" || link === "/loggedin/filter-labels") {
+        return navigationMessages.itemFilters;
+      }
+      if (id === "settings" || link === "/loggedin/settings") {
+        return navigationMessages.itemSettings;
+      }
+
+      return fallbackName;
+    },
+    [
+      navigationMessages.itemEisenhower,
+      navigationMessages.itemFilters,
+      navigationMessages.itemInbox,
+      navigationMessages.itemKanban,
+      navigationMessages.itemSettings,
+      navigationMessages.itemToday,
+      navigationMessages.itemUpcoming,
+    ]
+  );
+
+  const localizedPrimaryNavItems = useMemo(
+    () =>
+      primaryNavItems.map((item) => ({
+        ...item,
+        name: getLocalizedNavItemName(item.id, item.link, item.name),
+      })),
+    [getLocalizedNavItemName]
+  );
+
+  const [navItems, setNavItems] = useState(localizedPrimaryNavItems);
 
   const renderItems = (projectList: Array<Doc<"projects">>) => {
     return projectList.map(({ _id, name }, idx) => {
@@ -58,7 +118,7 @@ export default function SideBar() {
           ? [
               {
                 id: "productivity",
-                name: "Personas",
+                name: navigationMessages.itemPersonas,
                 link: "/loggedin/personas",
                 icon: <Hash className="w-4 h-4" />,
               },
@@ -67,29 +127,32 @@ export default function SideBar() {
         ...(featureSettings?.enabledModules?.epic
           ? [
               {
-                name: "Epics",
+                name: navigationMessages.itemEpics,
                 link: "/loggedin/epics",
                 icon: <Hash className="w-4 h-4" />,
               },
             ]
           : []),
       ];
-      const items = [...primaryNavItems, ...optionalItems, ...projectItems];
+      const items = [...localizedPrimaryNavItems, ...optionalItems, ...projectItems];
       setNavItems(items);
     }
   }, [
     featureSettings?.enabledModules?.epic,
     featureSettings?.enabledModules?.persona,
+    localizedPrimaryNavItems,
+    navigationMessages.itemEpics,
+    navigationMessages.itemPersonas,
     projectList,
   ]);
 
   return (
-    <div className="hidden border-r bg-muted/40 md:block">
-      <div className="flex h-full max-h-screen flex-col gap-2">
+    <div className="hidden border-r bg-muted/40 md:flex md:h-screen md:flex-col">
+      <div className="flex min-h-0 flex-1 flex-col gap-2">
         <div className="flex justify-between h-14 items-center border-b p-1 lg:h-[60px] lg:px-2">
           <UserProfile />
         </div>
-        <nav className="grid items-start px-1 text-sm font-medium lg:px-4">
+        <nav className="grid min-h-0 flex-1 items-start overflow-y-auto px-1 text-sm font-medium lg:px-4">
           {navItems.map(({ name, icon, link, id }, idx) => (
             <div key={idx}>
               {id && (
@@ -102,9 +165,7 @@ export default function SideBar() {
                   <p className="flex flex-1 text-base">
                     {LIST_OF_TITLE_IDS[id]}
                   </p>
-                  {LIST_OF_TITLE_IDS[id] === "My Projects" && (
-                    <AddProjectDialog />
-                  )}
+                  {id === "projects" && <AddProjectDialog />}
                 </div>
               )}
               <div className={cn("flex items-center lg:w-full")}>
@@ -137,7 +198,7 @@ export default function SideBar() {
                       <DialogTrigger id="closeDialog">
                         <PlusIcon
                           className="h-5 w-5"
-                          aria-label="Add a Label"
+                          aria-label={navigationMessages.addLabelAriaLabel}
                         />
                       </DialogTrigger>
                       <AddLabelDialog />
@@ -152,14 +213,14 @@ export default function SideBar() {
       <div className="mt-auto p-4">
         <Card x-chunk="dashboard-02-chunk-0">
           <CardHeader className="p-2 pt-0 md:p-4">
-            <CardTitle>Upgrade to Pro</CardTitle>
+            <CardTitle>{navigationMessages.upgradeTitle}</CardTitle>
             <CardDescription>
-              Unlock all features and get unlimited access to our support team.
+              {navigationMessages.upgradeDescription}
             </CardDescription>
           </CardHeader>
           <CardContent className="p-2 pt-0 md:p-4 md:pt-0">
             <Button size="sm" className="w-full">
-              Upgrade
+              {navigationMessages.upgradeCta}
             </Button>
           </CardContent>
         </Card>

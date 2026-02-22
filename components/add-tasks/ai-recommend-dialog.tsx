@@ -1,11 +1,12 @@
 "use client";
 
 import {
+  api,
   AiSuggestedReference,
   AiSuggestedTodo,
   AiSuggestionEnabledModules,
 } from "@/lib/supabase/api";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -25,6 +26,12 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Textarea } from "../ui/textarea";
+import { useQuery } from "@/lib/supabase/hooks";
+import {
+  DEFAULT_APP_LOCALE,
+  getLocaleMessages,
+  normalizeAppLocale,
+} from "@/lib/i18n";
 
 type NamedOption = {
   _id: string;
@@ -154,6 +161,10 @@ export default function AiRecommendDialog({
   onCreateFromSelected,
 }: AiRecommendDialogProps) {
   const [drafts, setDrafts] = useState<AiRecommendTaskDraft[]>([]);
+  const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
+  const locale = normalizeAppLocale(featureSettings?.locale, DEFAULT_APP_LOCALE);
+  const messages = useMemo(() => getLocaleMessages(locale), [locale]);
+  const dialogMessages = messages.dialogs.aiRecommend;
 
   useEffect(() => {
     const fallbackLabel = labels[0];
@@ -209,24 +220,26 @@ export default function AiRecommendDialog({
     >
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>AI 추천 작업 확인</DialogTitle>
-          <DialogDescription>
-            추천 내용을 수정한 뒤 생성하거나, 빠른 추가로 바로 생성할 수 있어요.
-          </DialogDescription>
+          <DialogTitle>{dialogMessages.title}</DialogTitle>
+          <DialogDescription>{dialogMessages.description}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 overflow-y-auto px-1">
           {drafts.length === 0 ? (
             <div className="rounded-md border border-dashed p-4 text-sm text-foreground/70">
-              추천 결과가 없습니다.
+              {dialogMessages.empty}
             </div>
           ) : (
             drafts.map((draft, index) => (
               <div key={draft.id} className="space-y-4 rounded-md border p-4">
-                <p className="text-sm font-semibold">추천 {index + 1}</p>
+                <p className="text-sm font-semibold">
+                  {dialogMessages.recommendationPrefix} {index + 1}
+                </p>
 
                 <div className="space-y-2">
-                  <Label htmlFor={`${draft.id}-taskName`}>Task name</Label>
+                  <Label htmlFor={`${draft.id}-taskName`}>
+                    {dialogMessages.taskNameLabel}
+                  </Label>
                   <Input
                     id={`${draft.id}-taskName`}
                     value={draft.taskName}
@@ -240,7 +253,9 @@ export default function AiRecommendDialog({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor={`${draft.id}-description`}>Description</Label>
+                  <Label htmlFor={`${draft.id}-description`}>
+                    {dialogMessages.descriptionLabel}
+                  </Label>
                   <Textarea
                     id={`${draft.id}-description`}
                     value={draft.description}
@@ -254,7 +269,7 @@ export default function AiRecommendDialog({
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Label</Label>
+                  <Label>{dialogMessages.labelLabel}</Label>
                   <Select
                     value={toSelectValue(draft.label)}
                     onValueChange={(value) =>
@@ -269,7 +284,7 @@ export default function AiRecommendDialog({
                     }
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="라벨 선택" />
+                      <SelectValue placeholder={dialogMessages.labelPlaceholder} />
                     </SelectTrigger>
                     <SelectContent>
                       {labels.map((label) => (
@@ -280,14 +295,16 @@ export default function AiRecommendDialog({
                           {label.name}
                         </SelectItem>
                       ))}
-                      <SelectItem value={NEW_REFERENCE_VALUE}>+ 새 라벨</SelectItem>
+                      <SelectItem value={NEW_REFERENCE_VALUE}>
+                        {dialogMessages.newLabelOption}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
 
                   {draft.label.type === "new" && (
                     <Input
                       value={draft.label.name}
-                      placeholder="새 라벨 이름"
+                      placeholder={dialogMessages.newLabelPlaceholder}
                       onChange={(event) =>
                         updateDraft(draft.id, (prev) => ({
                           ...prev,
@@ -303,7 +320,7 @@ export default function AiRecommendDialog({
 
                 {enabledModules.persona && (
                   <div className="space-y-2">
-                    <Label>Persona</Label>
+                    <Label>{dialogMessages.personaLabel}</Label>
                     <Select
                       value={
                         draft.persona
@@ -327,11 +344,13 @@ export default function AiRecommendDialog({
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="페르소나 선택" />
+                        <SelectValue
+                          placeholder={dialogMessages.personaPlaceholder}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={NONE_REFERENCE_VALUE}>
-                          선택 안 함
+                          {dialogMessages.noSelection}
                         </SelectItem>
                         {personas.map((persona) => (
                           <SelectItem
@@ -342,7 +361,7 @@ export default function AiRecommendDialog({
                           </SelectItem>
                         ))}
                         <SelectItem value={NEW_REFERENCE_VALUE}>
-                          + 새 페르소나
+                          {dialogMessages.newPersonaOption}
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -350,7 +369,7 @@ export default function AiRecommendDialog({
                     {draft.persona?.type === "new" && (
                       <Input
                         value={draft.persona.name}
-                        placeholder="새 페르소나 이름"
+                        placeholder={dialogMessages.newPersonaPlaceholder}
                         onChange={(event) =>
                           updateDraft(draft.id, (prev) => ({
                             ...prev,
@@ -367,7 +386,7 @@ export default function AiRecommendDialog({
 
                 {enabledModules.epic && (
                   <div className="space-y-2">
-                    <Label>Epic</Label>
+                    <Label>{dialogMessages.epicLabel}</Label>
                     <Select
                       value={
                         draft.epic ? toSelectValue(draft.epic) : NONE_REFERENCE_VALUE
@@ -387,11 +406,11 @@ export default function AiRecommendDialog({
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="에픽 선택" />
+                        <SelectValue placeholder={dialogMessages.epicPlaceholder} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={NONE_REFERENCE_VALUE}>
-                          선택 안 함
+                          {dialogMessages.noSelection}
                         </SelectItem>
                         {epics.map((epic) => (
                           <SelectItem
@@ -401,14 +420,16 @@ export default function AiRecommendDialog({
                             {epic.name}
                           </SelectItem>
                         ))}
-                        <SelectItem value={NEW_REFERENCE_VALUE}>+ 새 에픽</SelectItem>
+                        <SelectItem value={NEW_REFERENCE_VALUE}>
+                          {dialogMessages.newEpicOption}
+                        </SelectItem>
                       </SelectContent>
                     </Select>
 
                     {draft.epic?.type === "new" && (
                       <Input
                         value={draft.epic.name}
-                        placeholder="새 에픽 이름"
+                        placeholder={dialogMessages.newEpicPlaceholder}
                         onChange={(event) =>
                           updateDraft(draft.id, (prev) => ({
                             ...prev,
@@ -425,7 +446,9 @@ export default function AiRecommendDialog({
 
                 {enabledModules.story && (
                   <div className="space-y-2">
-                    <Label htmlFor={`${draft.id}-story`}>Story</Label>
+                    <Label htmlFor={`${draft.id}-story`}>
+                      {dialogMessages.storyLabel}
+                    </Label>
                     <Textarea
                       id={`${draft.id}-story`}
                       value={draft.story}
@@ -441,7 +464,9 @@ export default function AiRecommendDialog({
 
                 {enabledModules.workload && (
                   <div className="space-y-2">
-                    <Label htmlFor={`${draft.id}-workload`}>Workload (1-100)</Label>
+                    <Label htmlFor={`${draft.id}-workload`}>
+                      {dialogMessages.workloadLabel}
+                    </Label>
                     <Input
                       id={`${draft.id}-workload`}
                       type="number"
@@ -469,7 +494,7 @@ export default function AiRecommendDialog({
             disabled={isQuickAdding || isCreating}
             onClick={() => onOpenChange(false)}
           >
-            닫기
+            {dialogMessages.close}
           </Button>
           <Button
             type="button"
@@ -477,14 +502,14 @@ export default function AiRecommendDialog({
             disabled={drafts.length === 0 || isQuickAdding || isCreating}
             onClick={() => void onQuickAdd()}
           >
-            {isQuickAdding ? "빠른 추가 중..." : "빠른 추가"}
+            {isQuickAdding ? dialogMessages.quickAdding : dialogMessages.quickAdd}
           </Button>
           <Button
             type="button"
             disabled={drafts.length === 0 || isQuickAdding || isCreating}
             onClick={() => void onCreateFromSelected(drafts)}
           >
-            {isCreating ? "생성 중..." : "선택 내용으로 생성"}
+            {isCreating ? dialogMessages.creating : dialogMessages.createSelected}
           </Button>
         </DialogFooter>
       </DialogContent>

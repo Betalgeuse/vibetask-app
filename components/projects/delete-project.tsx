@@ -5,12 +5,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { api } from "@/lib/supabase/api";
-import { useAction } from "@/lib/supabase/hooks";
+import { useAction, useQuery } from "@/lib/supabase/hooks";
 import { EllipsisIcon, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { useToast } from "../ui/use-toast";
 import { Id } from "@/lib/supabase/types";
+import {
+  DEFAULT_APP_LOCALE,
+  getLocaleMessages,
+  normalizeAppLocale,
+} from "@/lib/i18n";
+import { useMemo } from "react";
 
 export default function DeleteProject({
   projectId,
@@ -20,6 +26,9 @@ export default function DeleteProject({
   const form = useForm({ defaultValues: { name: "" } });
   const { toast } = useToast();
   const router = useRouter();
+  const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
+  const locale = normalizeAppLocale(featureSettings?.locale, DEFAULT_APP_LOCALE);
+  const messages = useMemo(() => getLocaleMessages(locale), [locale]);
 
   const deleteProject = useAction(api.projects.deleteProjectAndItsTasks);
 
@@ -28,15 +37,16 @@ export default function DeleteProject({
 
     if (!result?.ok) {
       toast({
-        title: "🤗 Just a reminder",
-        description: result?.reason || "Unable to delete project.",
+        title: messages.dialogs.deleteProject.reminderTitle,
+        description:
+          result?.reason || messages.dialogs.deleteProject.reminderDescription,
         duration: 3000,
       });
       return;
     }
 
     toast({
-      title: "🗑️ Successfully deleted the project",
+      title: messages.dialogs.deleteProject.successTitle,
       duration: 3000,
     });
     router.push(`/loggedin/projects`);
@@ -51,8 +61,8 @@ export default function DeleteProject({
         <DropdownMenuLabel className="w-40 lg:w-56">
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <button type="submit" className="flex gap-2">
-              <Trash2 className="w-5 h-5 rotate-45 text-foreground/40" /> Delete
-              Project
+              <Trash2 className="w-5 h-5 rotate-45 text-foreground/40" />
+              {messages.dialogs.deleteProject.actionLabel}
             </button>
           </form>
         </DropdownMenuLabel>

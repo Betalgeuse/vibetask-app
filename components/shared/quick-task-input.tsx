@@ -179,7 +179,10 @@ export default function QuickTaskInput({
 
   return (
     <div ref={containerRef} className="pt-2">
-      <form onSubmit={handleSubmit} className="flex items-center gap-2">
+      <form
+        onSubmit={handleSubmit}
+        className="flex w-full flex-col gap-2 sm:flex-row sm:items-center"
+      >
         <Input
           ref={inputRef}
           value={taskName}
@@ -187,22 +190,29 @@ export default function QuickTaskInput({
           onChange={(event) => setTaskName(event.target.value)}
           onKeyDown={handleInputKeyDown}
           placeholder="Quick add task"
-          className="h-9"
+          className="h-9 w-full min-w-0"
         />
-        <Button type="submit" size="sm" disabled={isLoading || !taskName.trim()}>
-          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          disabled={isLoading}
-          onClick={cancelAdd}
-          aria-label="Cancel quick add"
-          className="h-9 w-9"
-        >
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <Button
+            type="submit"
+            size="sm"
+            disabled={isLoading || !taskName.trim()}
+            className="h-9 flex-1 sm:flex-none"
+          >
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={isLoading}
+            onClick={cancelAdd}
+            aria-label="Cancel quick add"
+            className="h-9 w-9 shrink-0"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </form>
     </div>
   );

@@ -67,6 +67,8 @@ type LocaleMessages = {
     modules: ModuleCopy;
     connectCalendar: string;
     disconnectCalendar: string;
+    calendarSidebarHint: string;
+    openTodayCalendar: string;
   };
   tasks: {
     taskNamePlaceholder: string;
@@ -88,6 +90,7 @@ type LocaleMessages = {
     checked: string;
     cancel: string;
     addTask: string;
+    addSubTask: string;
     checkingPriority: string;
     taskCreatedTitle: string;
     couldNotCreateTaskTitle: string;
@@ -115,6 +118,124 @@ type LocaleMessages = {
     loading: string;
     noTasks: string;
     columns: KanbanColumnCopy;
+  };
+  navigation: {
+    sectionTitleProjects: string;
+    sectionTitleProductivity: string;
+    itemInbox: string;
+    itemToday: string;
+    itemUpcoming: string;
+    itemKanban: string;
+    itemEisenhower: string;
+    itemFilters: string;
+    itemSettings: string;
+    itemPersonas: string;
+    itemEpics: string;
+    itemMyProjects: string;
+    toggleNavigationMenu: string;
+    searchTasksPlaceholder: string;
+    addProjectAriaLabel: string;
+    addLabelAriaLabel: string;
+    upgradeTitle: string;
+    upgradeDescription: string;
+    upgradeCta: string;
+    signOut: string;
+    userFallbackName: string;
+    userFallbackAccount: string;
+    profileImageAltSuffix: string;
+  };
+  dialogs: {
+    addProject: {
+      title: string;
+      namePlaceholder: string;
+      submit: string;
+      createdSuccessTitle: string;
+    };
+    addLabel: {
+      title: string;
+      namePlaceholder: string;
+      colorLabel: string;
+      submit: string;
+      createdSuccessTitle: string;
+    };
+    deleteProject: {
+      actionLabel: string;
+      reminderTitle: string;
+      reminderDescription: string;
+      successTitle: string;
+    };
+    taskDetails: {
+      subTasks: string;
+      metadataProject: string;
+      metadataDueDate: string;
+      metadataPriority: string;
+      metadataLabel: string;
+      deletedSuccessTitle: string;
+    };
+    prioritySuggestion: {
+      title: string;
+      suggestedQuadrantPrefix: string;
+      fallbackDescription: string;
+      pickQuadrant: string;
+      cancel: string;
+      confirm: string;
+      confirming: string;
+    };
+    aiRecommend: {
+      title: string;
+      description: string;
+      empty: string;
+      recommendationPrefix: string;
+      taskNameLabel: string;
+      descriptionLabel: string;
+      labelLabel: string;
+      labelPlaceholder: string;
+      newLabelOption: string;
+      newLabelPlaceholder: string;
+      personaLabel: string;
+      personaPlaceholder: string;
+      noSelection: string;
+      newPersonaOption: string;
+      newPersonaPlaceholder: string;
+      epicLabel: string;
+      epicPlaceholder: string;
+      newEpicOption: string;
+      newEpicPlaceholder: string;
+      storyLabel: string;
+      workloadLabel: string;
+      close: string;
+      quickAdd: string;
+      quickAdding: string;
+      createSelected: string;
+      creating: string;
+    };
+  };
+  suggestions: {
+    loadingButtonLabel: string;
+    buttonLabel: string;
+    noRecommendationsTitle: string;
+    noRecommendationsDescription: string;
+    requestFailureTitle: string;
+    requestFailureDescription: string;
+    quickAddSuccessTitle: string;
+    quickAddEmptyTitle: string;
+    quickAddEmptyDescription: string;
+    quickAddFailureTitle: string;
+    quickAddFailureDescription: string;
+    noItemsToCreateTitle: string;
+    labelNameRequiredTemplate: string;
+    labelCreateFailureTemplate: string;
+    personaNameRequiredTemplate: string;
+    personaCreateFailureTemplate: string;
+    epicNameRequiredTemplate: string;
+    epicCreateFailureTemplate: string;
+    workloadInvalidTemplate: string;
+    taskNameRequiredTemplate: string;
+    missingParentForSubTask: string;
+    missingParentForSubTaskCreation: string;
+    createSelectedSuccessTitle: string;
+    createSelectedFailureTitle: string;
+    createSelectedFailureDescription: string;
   };
 };
 
@@ -173,6 +294,8 @@ const EN_MESSAGES: LocaleMessages = {
     },
     connectCalendar: "Connect Google Calendar",
     disconnectCalendar: "Disconnect",
+    calendarSidebarHint: "When enabled, a calendar sidebar is shown on the Today page.",
+    openTodayCalendar: "Open Today page",
   },
   tasks: {
     taskNamePlaceholder: "Enter your task name",
@@ -194,6 +317,7 @@ const EN_MESSAGES: LocaleMessages = {
     checked: "Checked",
     cancel: "Cancel",
     addTask: "Add task",
+    addSubTask: "Add sub-task",
     checkingPriority: "Checking priority...",
     taskCreatedTitle: "🦄 Created a task!",
     couldNotCreateTaskTitle: "Could not create task",
@@ -278,6 +402,133 @@ const EN_MESSAGES: LocaleMessages = {
       },
     },
   },
+  navigation: {
+    sectionTitleProjects: "My Projects",
+    sectionTitleProductivity: "Productivity",
+    itemInbox: "Inbox",
+    itemToday: "Today",
+    itemUpcoming: "Upcoming",
+    itemKanban: "Kanban",
+    itemEisenhower: "Eisenhower Matrix",
+    itemFilters: "Filters & Labels",
+    itemSettings: "Settings",
+    itemPersonas: "Personas",
+    itemEpics: "Epics",
+    itemMyProjects: "My Projects",
+    toggleNavigationMenu: "Toggle navigation menu",
+    searchTasksPlaceholder: "Search tasks...",
+    addProjectAriaLabel: "Add a Project",
+    addLabelAriaLabel: "Add a Label",
+    upgradeTitle: "Upgrade to Pro",
+    upgradeDescription:
+      "Unlock all features and get unlimited access to our support team.",
+    upgradeCta: "Upgrade",
+    signOut: "Sign out",
+    userFallbackName: "User",
+    userFallbackAccount: "Account",
+    profileImageAltSuffix: "profile picture",
+  },
+  dialogs: {
+    addProject: {
+      title: "Add a Project",
+      namePlaceholder: "Project name",
+      submit: "Add",
+      createdSuccessTitle: "🚀 Successfully created a project!",
+    },
+    addLabel: {
+      title: "Add a Label",
+      namePlaceholder: "Label name",
+      colorLabel: "Label color",
+      submit: "Add",
+      createdSuccessTitle: "😎 Successfully created a label!",
+    },
+    deleteProject: {
+      actionLabel: "Delete Project",
+      reminderTitle: "🤗 Just a reminder",
+      reminderDescription: "Unable to delete project.",
+      successTitle: "🗑️ Successfully deleted the project",
+    },
+    taskDetails: {
+      subTasks: "Sub-tasks",
+      metadataProject: "Project",
+      metadataDueDate: "Due date",
+      metadataPriority: "Priority",
+      metadataLabel: "Label",
+      deletedSuccessTitle: "🗑️ Successfully deleted",
+    },
+    prioritySuggestion: {
+      title: "Confirm suggested priority",
+      suggestedQuadrantPrefix: "Suggested quadrant:",
+      fallbackDescription:
+        "AI is unavailable right now. A default quadrant was suggested.",
+      pickQuadrant: "Pick a quadrant",
+      cancel: "Cancel",
+      confirm: "Use selected priority",
+      confirming: "Applying...",
+    },
+    aiRecommend: {
+      title: "Review AI recommendations",
+      description:
+        "Edit recommended items, then create them or use quick add for instant creation.",
+      empty: "No recommendations available.",
+      recommendationPrefix: "Recommendation",
+      taskNameLabel: "Task name",
+      descriptionLabel: "Description",
+      labelLabel: "Label",
+      labelPlaceholder: "Select a label",
+      newLabelOption: "+ New label",
+      newLabelPlaceholder: "New label name",
+      personaLabel: "Persona",
+      personaPlaceholder: "Select a persona",
+      noSelection: "None",
+      newPersonaOption: "+ New persona",
+      newPersonaPlaceholder: "New persona name",
+      epicLabel: "Epic",
+      epicPlaceholder: "Select an epic",
+      newEpicOption: "+ New epic",
+      newEpicPlaceholder: "New epic name",
+      storyLabel: "Story",
+      workloadLabel: "Workload (1-100)",
+      close: "Close",
+      quickAdd: "Quick add",
+      quickAdding: "Quick adding...",
+      createSelected: "Create from selection",
+      creating: "Creating...",
+    },
+  },
+  suggestions: {
+    loadingButtonLabel: "Loading Tasks (AI)",
+    buttonLabel: "Suggest Missing Tasks (AI) 💖",
+    noRecommendationsTitle: "No recommended tasks",
+    noRecommendationsDescription:
+      "There are no additional recommendations based on current context.",
+    requestFailureTitle: "AI recommendation failed",
+    requestFailureDescription: "Unable to load AI recommendations.",
+    quickAddSuccessTitle: "⚡ Added {count} tasks quickly",
+    quickAddEmptyTitle: "No quick add results",
+    quickAddEmptyDescription: "There are no recommended tasks to create.",
+    quickAddFailureTitle: "Quick add failed",
+    quickAddFailureDescription: "An error occurred while quick adding.",
+    noItemsToCreateTitle: "No items to create",
+    labelNameRequiredTemplate:
+      "Enter a label name for recommendation {index}.",
+    labelCreateFailureTemplate: "Failed to create new label: {name}",
+    personaNameRequiredTemplate:
+      "Enter a persona name for recommendation {index}.",
+    personaCreateFailureTemplate: "Failed to create new persona: {name}",
+    epicNameRequiredTemplate: "Enter an epic name for recommendation {index}.",
+    epicCreateFailureTemplate: "Failed to create new epic: {name}",
+    workloadInvalidTemplate:
+      "Workload for recommendation {index} must be a number greater than 0.",
+    taskNameRequiredTemplate: "Enter taskName for recommendation {index}.",
+    missingParentForSubTask: "Missing parent task id for sub-task suggestions.",
+    missingParentForSubTaskCreation:
+      "Missing parent task id for sub-task creation.",
+    createSelectedSuccessTitle: "✅ Created {count} recommended tasks",
+    createSelectedFailureTitle: "Failed to create selected items",
+    createSelectedFailureDescription:
+      "An error occurred while creating tasks from your selection.",
+  },
 };
 
 const KO_MESSAGES: LocaleMessages = {
@@ -335,6 +586,8 @@ const KO_MESSAGES: LocaleMessages = {
     },
     connectCalendar: "Google Calendar 연결",
     disconnectCalendar: "연결 해제",
+    calendarSidebarHint: "활성화하면 Today 페이지에 캘린더 사이드바가 표시됩니다.",
+    openTodayCalendar: "Today 페이지 열기",
   },
   tasks: {
     taskNamePlaceholder: "태스크명을 입력하세요",
@@ -356,6 +609,7 @@ const KO_MESSAGES: LocaleMessages = {
     checked: "선택됨",
     cancel: "취소",
     addTask: "태스크 추가",
+    addSubTask: "하위 작업 추가",
     checkingPriority: "우선순위 확인 중...",
     taskCreatedTitle: "🦄 태스크가 생성되었습니다!",
     couldNotCreateTaskTitle: "태스크를 생성할 수 없습니다",
@@ -439,6 +693,129 @@ const KO_MESSAGES: LocaleMessages = {
         subtitle: "완료된 태스크",
       },
     },
+  },
+  navigation: {
+    sectionTitleProjects: "내 프로젝트",
+    sectionTitleProductivity: "생산성",
+    itemInbox: "인박스",
+    itemToday: "오늘",
+    itemUpcoming: "다가오는 일정",
+    itemKanban: "칸반",
+    itemEisenhower: "아이젠하워 매트릭스",
+    itemFilters: "필터 & 라벨",
+    itemSettings: "설정",
+    itemPersonas: "페르소나",
+    itemEpics: "에픽",
+    itemMyProjects: "내 프로젝트",
+    toggleNavigationMenu: "내비게이션 메뉴 토글",
+    searchTasksPlaceholder: "작업 검색...",
+    addProjectAriaLabel: "프로젝트 추가",
+    addLabelAriaLabel: "라벨 추가",
+    upgradeTitle: "프로로 업그레이드",
+    upgradeDescription: "모든 기능과 무제한 지원을 이용해 보세요.",
+    upgradeCta: "업그레이드",
+    signOut: "로그아웃",
+    userFallbackName: "사용자",
+    userFallbackAccount: "계정",
+    profileImageAltSuffix: "프로필 이미지",
+  },
+  dialogs: {
+    addProject: {
+      title: "프로젝트 추가",
+      namePlaceholder: "프로젝트 이름",
+      submit: "추가",
+      createdSuccessTitle: "🚀 프로젝트를 생성했어요!",
+    },
+    addLabel: {
+      title: "라벨 추가",
+      namePlaceholder: "라벨 이름",
+      colorLabel: "라벨 색상",
+      submit: "추가",
+      createdSuccessTitle: "😎 라벨을 생성했어요!",
+    },
+    deleteProject: {
+      actionLabel: "프로젝트 삭제",
+      reminderTitle: "🤗 안내",
+      reminderDescription: "프로젝트를 삭제할 수 없습니다.",
+      successTitle: "🗑️ 프로젝트를 삭제했어요",
+    },
+    taskDetails: {
+      subTasks: "하위 작업",
+      metadataProject: "프로젝트",
+      metadataDueDate: "마감일",
+      metadataPriority: "우선순위",
+      metadataLabel: "라벨",
+      deletedSuccessTitle: "🗑️ 삭제했습니다",
+    },
+    prioritySuggestion: {
+      title: "추천 우선순위를 확인하세요",
+      suggestedQuadrantPrefix: "추천 사분면:",
+      fallbackDescription: "지금은 AI를 사용할 수 없어 기본 사분면을 추천했어요.",
+      pickQuadrant: "사분면 선택",
+      cancel: "취소",
+      confirm: "선택한 우선순위 사용",
+      confirming: "적용 중...",
+    },
+    aiRecommend: {
+      title: "AI 추천 작업 확인",
+      description:
+        "추천 내용을 수정한 뒤 생성하거나, 빠른 추가로 바로 생성할 수 있어요.",
+      empty: "추천 결과가 없습니다.",
+      recommendationPrefix: "추천",
+      taskNameLabel: "작업 이름",
+      descriptionLabel: "설명",
+      labelLabel: "라벨",
+      labelPlaceholder: "라벨 선택",
+      newLabelOption: "+ 새 라벨",
+      newLabelPlaceholder: "새 라벨 이름",
+      personaLabel: "페르소나",
+      personaPlaceholder: "페르소나 선택",
+      noSelection: "선택 안 함",
+      newPersonaOption: "+ 새 페르소나",
+      newPersonaPlaceholder: "새 페르소나 이름",
+      epicLabel: "에픽",
+      epicPlaceholder: "에픽 선택",
+      newEpicOption: "+ 새 에픽",
+      newEpicPlaceholder: "새 에픽 이름",
+      storyLabel: "스토리",
+      workloadLabel: "작업량 (1-100)",
+      close: "닫기",
+      quickAdd: "빠른 추가",
+      quickAdding: "빠른 추가 중...",
+      createSelected: "선택 내용으로 생성",
+      creating: "생성 중...",
+    },
+  },
+  suggestions: {
+    loadingButtonLabel: "작업 불러오는 중 (AI)",
+    buttonLabel: "누락 작업 추천 (AI) 💖",
+    noRecommendationsTitle: "추천할 작업이 없습니다",
+    noRecommendationsDescription: "현재 정보 기준으로 추가 추천이 없어요.",
+    requestFailureTitle: "AI 추천 실패",
+    requestFailureDescription: "AI 추천 작업을 불러오지 못했습니다.",
+    quickAddSuccessTitle: "⚡ {count}개 작업을 빠르게 추가했어요",
+    quickAddEmptyTitle: "빠른 추가 결과가 없습니다",
+    quickAddEmptyDescription: "생성할 추천 작업이 없어요.",
+    quickAddFailureTitle: "빠른 추가 실패",
+    quickAddFailureDescription: "빠른 추가 중 오류가 발생했습니다.",
+    noItemsToCreateTitle: "생성할 항목이 없습니다",
+    labelNameRequiredTemplate: "{index}번째 추천의 라벨 이름을 입력해 주세요.",
+    labelCreateFailureTemplate: "새 라벨 생성에 실패했습니다: {name}",
+    personaNameRequiredTemplate:
+      "{index}번째 추천의 페르소나 이름을 입력해 주세요.",
+    personaCreateFailureTemplate: "새 페르소나 생성에 실패했습니다: {name}",
+    epicNameRequiredTemplate: "{index}번째 추천의 에픽 이름을 입력해 주세요.",
+    epicCreateFailureTemplate: "새 에픽 생성에 실패했습니다: {name}",
+    workloadInvalidTemplate:
+      "{index}번째 추천의 workload는 1 이상의 숫자여야 합니다.",
+    taskNameRequiredTemplate: "{index}번째 추천의 taskName을 입력해 주세요.",
+    missingParentForSubTask: "하위 작업 추천을 위한 부모 작업 ID가 없습니다.",
+    missingParentForSubTaskCreation:
+      "하위 작업 생성을 위한 부모 작업 ID가 없습니다.",
+    createSelectedSuccessTitle: "✅ {count}개 추천 작업을 생성했어요",
+    createSelectedFailureTitle: "선택 내용 생성 실패",
+    createSelectedFailureDescription:
+      "선택 내용으로 작업 생성 중 오류가 발생했습니다.",
   },
 };
 

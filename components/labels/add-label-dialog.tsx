@@ -12,9 +12,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel } from "../ui/form";
 import { Input } from "../ui/input";
 import { useToast } from "../ui/use-toast";
 import { Id } from "@/lib/supabase/types";
-import { useMutation } from "@/lib/supabase/hooks";
-import { useState } from "react";
+import { useMutation, useQuery } from "@/lib/supabase/hooks";
+import { useMemo, useState } from "react";
 import { Loader } from "lucide-react";
+import {
+  DEFAULT_APP_LOCALE,
+  getLocaleMessages,
+  normalizeAppLocale,
+} from "@/lib/i18n";
 
 type AddLabelFormValues = {
   name: string;
@@ -24,6 +29,9 @@ type AddLabelFormValues = {
 export default function AddLabelDialog() {
   const addLabelMutation = useMutation(api.labels.createALabel);
   const [isLoading, setIsLoading] = useState(false);
+  const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
+  const locale = normalizeAppLocale(featureSettings?.locale, DEFAULT_APP_LOCALE);
+  const messages = useMemo(() => getLocaleMessages(locale), [locale]);
 
   const router = useRouter();
   const { toast } = useToast();
@@ -51,7 +59,7 @@ export default function AddLabelDialog() {
         // document.getElementById("closeDialog")?.click();
 
         toast({
-          title: "😎 Successfully created a Label!",
+          title: messages.dialogs.addLabel.createdSuccessTitle,
           duration: 5000,
         });
       }
@@ -63,7 +71,7 @@ export default function AddLabelDialog() {
   return (
     <DialogContent className="max-w-xl flex flex-col md:flex-row lg:justify-between text-right">
       <DialogHeader className="w-full">
-        <DialogTitle>Add a Label</DialogTitle>
+        <DialogTitle>{messages.dialogs.addLabel.title}</DialogTitle>
         <DialogDescription className="capitalize">
           <Form {...form}>
             <form
@@ -79,7 +87,7 @@ export default function AddLabelDialog() {
                       <Input
                         id="name"
                         type="text"
-                        placeholder="Label name"
+                        placeholder={messages.dialogs.addLabel.namePlaceholder}
                         required
                         className="border-0 font-semibold text-lg"
                         {...field}
@@ -94,7 +102,7 @@ export default function AddLabelDialog() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-xs text-foreground/70">
-                      Label color
+                      {messages.dialogs.addLabel.colorLabel}
                     </FormLabel>
                     <FormControl>
                       <div className="flex items-center gap-3">
@@ -118,7 +126,7 @@ export default function AddLabelDialog() {
                     <Loader className="h-5 w-5 text-primary" />
                   </div>
                 ) : (
-                  "Add"
+                  messages.dialogs.addLabel.submit
                 )}
               </Button>
             </form>

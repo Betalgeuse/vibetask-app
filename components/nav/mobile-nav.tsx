@@ -11,6 +11,12 @@ import SearchForm from "./search-form";
 import UserProfile from "./user-profile";
 import { api } from "@/lib/supabase/api";
 import { useQuery } from "@/lib/supabase/hooks";
+import {
+  DEFAULT_APP_LOCALE,
+  getLocaleMessages,
+  normalizeAppLocale,
+} from "@/lib/i18n";
+import { useMemo } from "react";
 
 export default function MobileNav({
   navTitle = "",
@@ -20,11 +26,61 @@ export default function MobileNav({
   navLink?: string;
 }) {
   const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
+  const locale = normalizeAppLocale(featureSettings?.locale, DEFAULT_APP_LOCALE);
+  const messages = useMemo(() => getLocaleMessages(locale), [locale]);
+  const navigationMessages = messages.navigation;
+
+  const getLocalizedNavItemName = useMemo(
+    () => (id: string | undefined, link: string, fallbackName: string) => {
+      if (id === "primary" || link === "/loggedin") {
+        return navigationMessages.itemInbox;
+      }
+      if (link === "/loggedin/today") {
+        return navigationMessages.itemToday;
+      }
+      if (link === "/loggedin/upcoming") {
+        return navigationMessages.itemUpcoming;
+      }
+      if (link === "/loggedin/kanban") {
+        return navigationMessages.itemKanban;
+      }
+      if (link === "/loggedin/eisenhower") {
+        return navigationMessages.itemEisenhower;
+      }
+      if (id === "filters" || link === "/loggedin/filter-labels") {
+        return navigationMessages.itemFilters;
+      }
+      if (id === "settings" || link === "/loggedin/settings") {
+        return navigationMessages.itemSettings;
+      }
+
+      return fallbackName;
+    },
+    [
+      navigationMessages.itemEisenhower,
+      navigationMessages.itemFilters,
+      navigationMessages.itemInbox,
+      navigationMessages.itemKanban,
+      navigationMessages.itemSettings,
+      navigationMessages.itemToday,
+      navigationMessages.itemUpcoming,
+    ]
+  );
+
+  const localizedPrimaryNavItems = useMemo(
+    () =>
+      primaryNavItems.map((item) => ({
+        ...item,
+        name: getLocalizedNavItemName(item.id, item.link, item.name),
+      })),
+    [getLocalizedNavItemName]
+  );
+
   const optionalItems = [
     ...(featureSettings?.enabledModules?.persona
       ? [
           {
-            name: "Personas",
+            name: navigationMessages.itemPersonas,
             link: "/loggedin/personas",
             icon: <span className="text-xs">🧠</span>,
           },
@@ -33,7 +89,7 @@ export default function MobileNav({
     ...(featureSettings?.enabledModules?.epic
       ? [
           {
-            name: "Epics",
+            name: navigationMessages.itemEpics,
             link: "/loggedin/epics",
             icon: <span className="text-xs">🗂️</span>,
           },
@@ -41,7 +97,45 @@ export default function MobileNav({
       : []),
   ];
 
-  const navItems = [...primaryNavItems, ...optionalItems];
+  const navItems = [...localizedPrimaryNavItems, ...optionalItems];
+
+  const resolvedNavTitle = useMemo(() => {
+    if (!navTitle.trim()) {
+      return navTitle;
+    }
+
+    if (navLink === "/loggedin/projects") {
+      return navigationMessages.itemMyProjects;
+    }
+
+    const titleMap: Record<string, string> = {
+      Inbox: navigationMessages.itemInbox,
+      Today: navigationMessages.itemToday,
+      Upcoming: navigationMessages.itemUpcoming,
+      Kanban: navigationMessages.itemKanban,
+      "Eisenhower Matrix": navigationMessages.itemEisenhower,
+      "Filters & Labels": navigationMessages.itemFilters,
+      Settings: navigationMessages.itemSettings,
+      Personas: navigationMessages.itemPersonas,
+      Epics: navigationMessages.itemEpics,
+      "My Projects": navigationMessages.itemMyProjects,
+    };
+
+    return titleMap[navTitle] ?? navTitle;
+  }, [
+    navLink,
+    navTitle,
+    navigationMessages.itemEisenhower,
+    navigationMessages.itemEpics,
+    navigationMessages.itemFilters,
+    navigationMessages.itemInbox,
+    navigationMessages.itemKanban,
+    navigationMessages.itemMyProjects,
+    navigationMessages.itemPersonas,
+    navigationMessages.itemSettings,
+    navigationMessages.itemToday,
+    navigationMessages.itemUpcoming,
+  ]);
 
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
@@ -49,11 +143,13 @@ export default function MobileNav({
         <SheetTrigger asChild>
           <Button variant="outline" size="icon" className="shrink-0 md:hidden">
             <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle navigation menu</span>
+            <span className="sr-only">
+              {navigationMessages.toggleNavigationMenu}
+            </span>
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="flex flex-col">
-          <nav className="grid gap-2 text-lg font-medium">
+        <SheetContent side="left" className="flex h-full flex-col overflow-hidden">
+          <nav className="grid min-h-0 flex-1 gap-2 overflow-y-auto pr-4 text-lg font-medium">
             <UserProfile />
 
             {navItems.map(({ name, icon, link }, idx) => (
@@ -68,7 +164,9 @@ export default function MobileNav({
             ))}
 
             <div className="flex items-center mt-6 mb-2">
-              <p className="flex flex-1 text-base">My Projects</p>
+              <p className="flex flex-1 text-base">
+                {navigationMessages.itemMyProjects}
+              </p>
             </div>
           </nav>
         </SheetContent>
@@ -77,7 +175,7 @@ export default function MobileNav({
         <div className="lg:flex-1">
           <Link href={navLink}>
             <p className="text-sm font-semibold text-foreground/70 w-24">
-              {navTitle}
+              {resolvedNavTitle}
             </p>
           </Link>
         </div>
