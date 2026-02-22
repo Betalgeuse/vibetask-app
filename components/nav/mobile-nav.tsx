@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu } from "lucide-react";
+import { Hash, Menu } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
   normalizeAppLocale,
 } from "@/lib/i18n";
 import { useMemo } from "react";
+import { usePathname } from "next/navigation";
 
 export default function MobileNav({
   navTitle = "",
@@ -25,6 +26,8 @@ export default function MobileNav({
   navTitle?: string;
   navLink?: string;
 }) {
+  const pathname = usePathname();
+  const projectList = useQuery(api.projects.getProjects) ?? [];
   const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
   const locale = normalizeAppLocale(featureSettings?.locale, DEFAULT_APP_LOCALE);
   const messages = useMemo(() => getLocaleMessages(locale), [locale]);
@@ -149,14 +152,14 @@ export default function MobileNav({
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="flex h-full flex-col overflow-hidden">
-          <nav className="grid min-h-0 flex-1 gap-2 overflow-y-auto pr-4 text-lg font-medium">
+          <nav className="grid min-h-0 flex-1 gap-2 overflow-y-auto pr-2 text-lg font-medium">
             <UserProfile />
 
             {navItems.map(({ name, icon, link }, idx) => (
               <Link
                 key={idx}
                 href={link}
-                className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2  hover:text-foreground"
+                className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 hover:text-foreground"
               >
                 {icon}
                 {name}
@@ -167,6 +170,28 @@ export default function MobileNav({
               <p className="flex flex-1 text-base">
                 {navigationMessages.itemMyProjects}
               </p>
+            </div>
+
+            <div className="space-y-1 pb-3">
+              {projectList.map((project) => {
+                const projectLink = `/loggedin/projects/${project._id}`;
+                const isActive = pathname === projectLink;
+
+                return (
+                  <Link
+                    key={project._id}
+                    href={projectLink}
+                    className={`mx-[-0.65rem] flex items-center gap-3 rounded-xl px-3 py-2 text-sm ${
+                      isActive
+                        ? "bg-primary/10 text-primary"
+                        : "text-foreground/80 hover:text-foreground"
+                    }`}
+                  >
+                    <Hash className="h-4 w-4" />
+                    <span className="truncate">{project.name}</span>
+                  </Link>
+                );
+              })}
             </div>
           </nav>
         </SheetContent>
