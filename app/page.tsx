@@ -1,22 +1,59 @@
 "use client";
-import { signInAction, signInWithEmailAction } from "@/actions/auth-action";
+import { signInWithEmailAction } from "@/actions/auth-action";
+import { createClient } from "@/lib/supabase/client";
 import clsx from "clsx";
 import { Loader, StepForward } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-
 import { useFormStatus } from "react-dom";
 
 export default function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setError(params.get("error"));
     setMessage(params.get("message"));
   }, []);
+
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+
+    try {
+      const supabase = createClient();
+      const origin = window.location.origin.replace(/\/+$/, "");
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${origin}/auth/callback?next=/loggedin`,
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
+        },
+      });
+
+      if (oauthError) {
+        throw oauthError;
+      }
+
+      if (!data?.url) {
+        throw new Error("Unable to start Google sign-in");
+      }
+
+      window.location.assign(data.url);
+      return;
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "Google sign-in failed.";
+      window.location.assign(`/?error=${encodeURIComponent(message)}`);
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
 
   return (
     <main className="bg-gradient-to-r from-purple-200 to-orange-200 h-full min-h-screen">
@@ -84,9 +121,10 @@ href="https://convex.dev"
               </div>
             )}
             <div className="mt-12 flex flex-col gap-4">
-              <form action={signInAction}>
-                <GetStartedButton />
-              </form>
+              <GetStartedButton
+                pending={isGoogleLoading}
+                onClick={handleGoogleSignIn}
+              />
               <form
                 action={signInWithEmailAction}
                 className="mx-auto w-full max-w-sm rounded-xl border border-purple-200 bg-white/80 p-4"
@@ -200,13 +238,18 @@ href="https://convex.dev"
   );
 }
 
-function GetStartedButton() {
-  const { pending } = useFormStatus();
-
+function GetStartedButton({
+  pending,
+  onClick,
+}: {
+  pending: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       disabled={pending}
-      type="submit"
+      type="button"
+      onClick={onClick}
       className="flex items-center justify-center px-8 py-4 mb-2 me-2 overflow-hidden text-xl font-medium text-gray-100 rounded-xl group bg-gradient-to-br from-purple-600 to-orange-600 hover:text-white dark:text-white focus:ring-4 focus:outline-none focus:ring-yellow-300 dark:focus:ring-blue-800"
     >
       <span className="flex items-center gap-1">
