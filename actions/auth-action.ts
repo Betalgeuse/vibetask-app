@@ -23,10 +23,13 @@ function getOriginFromHeaders() {
 }
 
 export async function signInWithGoogleAction() {
-  try {
-    const supabase = createClient();
-    const origin = getOriginFromHeaders();
+  const supabase = createClient();
+  const origin = getOriginFromHeaders();
 
+  let oauthUrl: string | null = null;
+  let oauthError: string | null = null;
+
+  try {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -38,20 +41,22 @@ export async function signInWithGoogleAction() {
       },
     });
 
-    if (error) {
-      redirect(`/?error=${encodeURIComponent(error.message)}`);
-    }
-
-    if (!data.url) {
-      redirect("/?error=Unable%20to%20start%20Google%20sign-in");
-    }
-
-    redirect(data.url);
+    oauthError = error?.message ?? null;
+    oauthUrl = data?.url ?? null;
   } catch (error) {
-    const message =
+    oauthError =
       error instanceof Error ? error.message : "Google sign-in failed.";
-    redirect(`/?error=${encodeURIComponent(message)}`);
   }
+
+  if (oauthError) {
+    redirect(`/?error=${encodeURIComponent(oauthError)}`);
+  }
+
+  if (!oauthUrl) {
+    redirect("/?error=Unable%20to%20start%20Google%20sign-in");
+  }
+
+  redirect(oauthUrl);
 }
 
 export async function signInAction() {
@@ -59,7 +64,7 @@ export async function signInAction() {
 }
 
 export async function signInWithEmailAction(formData: FormData) {
-  const emailValue = formData.get("email");
+  const emailValue = formData?.get?.("email");
   const email =
     typeof emailValue === "string" ? emailValue.trim().toLowerCase() : "";
 
@@ -67,9 +72,12 @@ export async function signInWithEmailAction(formData: FormData) {
     redirect("/?error=Email%20is%20required.");
   }
 
+  const supabase = createClient();
+  const origin = getOriginFromHeaders();
+
+  let otpError: string | null = null;
+
   try {
-    const supabase = createClient();
-    const origin = getOriginFromHeaders();
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
@@ -77,18 +85,19 @@ export async function signInWithEmailAction(formData: FormData) {
       },
     });
 
-    if (error) {
-      redirect(`/?error=${encodeURIComponent(error.message)}`);
-    }
-
-    redirect(
-      "/?message=Check%20your%20email%20for%20the%20sign-in%20link%20to%20continue."
-    );
+    otpError = error?.message ?? null;
   } catch (error) {
-    const message =
+    otpError =
       error instanceof Error ? error.message : "Email sign-in failed.";
-    redirect(`/?error=${encodeURIComponent(message)}`);
   }
+
+  if (otpError) {
+    redirect(`/?error=${encodeURIComponent(otpError)}`);
+  }
+
+  redirect(
+    "/?message=Check%20your%20email%20for%20the%20sign-in%20link%20to%20continue."
+  );
 }
 
 export async function signOutAction() {
