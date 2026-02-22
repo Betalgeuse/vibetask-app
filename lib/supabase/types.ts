@@ -4,6 +4,13 @@ import type {
   TaskPayload,
   WorkflowStatus,
 } from "@/lib/types/task-payload";
+import type {
+  CustomFieldAppliesTo,
+  CustomFieldType,
+  ProjectionKind,
+  TaskEntityRef,
+  TaskRelationshipKind,
+} from "@/lib/types/task-projection";
 
 export type Id<_TableName extends string = string> = string;
 
@@ -90,6 +97,77 @@ export interface UserFeatureSettingsDoc {
   sidebarModules?: string[];
 }
 
+export interface TaskProjectionDoc {
+  _id: Id<"taskProjections">;
+  userId: string;
+  name: string;
+  description?: string;
+  projectionKind: ProjectionKind;
+  filters: Record<string, unknown>;
+  sortRules: unknown[];
+  laneConfig: Record<string, unknown>;
+  displayConfig: Record<string, unknown>;
+  isDefault: boolean;
+  isArchived: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  isVirtual?: boolean;
+}
+
+export interface TaskProjectionPositionDoc {
+  _id: Id<"taskProjectionPositions">;
+  projectionId: Id<"taskProjections">;
+  taskRef: TaskEntityRef;
+  laneKey: string;
+  lanePosition: number;
+  sortRank: number;
+  metadata: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TaskRelationshipDoc {
+  _id: Id<"taskRelationships">;
+  userId: string;
+  relationKind: TaskRelationshipKind;
+  source: TaskEntityRef;
+  target: TaskEntityRef;
+  metadata: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CustomFieldDefinitionDoc {
+  _id: Id<"customFieldDefinitions">;
+  userId: string;
+  fieldKey: string;
+  displayName: string;
+  description?: string;
+  fieldType: CustomFieldType;
+  appliesTo: CustomFieldAppliesTo;
+  options: unknown[];
+  validation: Record<string, unknown>;
+  isRequired: boolean;
+  isArchived: boolean;
+  sortOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CustomFieldValueDoc {
+  _id: Id<"customFieldValues">;
+  userId: string;
+  fieldId: Id<"customFieldDefinitions">;
+  taskRef: TaskEntityRef;
+  valueText?: string;
+  valueNumber?: number;
+  valueBoolean?: boolean;
+  valueDate?: number;
+  valueJson?: unknown;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 interface DocMap {
   projects: ProjectDoc;
   labels: LabelDoc;
@@ -98,6 +176,11 @@ interface DocMap {
   epics: EpicDoc;
   personas: PersonaDoc;
   userFeatureSettings: UserFeatureSettingsDoc;
+  taskProjections: TaskProjectionDoc;
+  taskProjectionPositions: TaskProjectionPositionDoc;
+  taskRelationships: TaskRelationshipDoc;
+  customFieldDefinitions: CustomFieldDefinitionDoc;
+  customFieldValues: CustomFieldValueDoc;
 }
 
 export type Doc<T extends keyof DocMap> = DocMap[T];
@@ -108,3 +191,11 @@ export type {
   TaskPayload,
   TaskModuleFlags,
 } from "@/lib/types/task-payload";
+export type {
+  ProjectionKind,
+  TaskEntityKind,
+  TaskEntityRef,
+  TaskRelationshipKind,
+  CustomFieldType,
+  CustomFieldAppliesTo,
+} from "@/lib/types/task-projection";

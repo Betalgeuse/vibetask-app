@@ -20,6 +20,21 @@ import {
   type WorkflowStatus,
 } from "@/lib/types/task-payload";
 import {
+  normalizeCustomFieldAppliesTo,
+  normalizeCustomFieldKey,
+  normalizeCustomFieldType,
+  normalizeProjectionKind,
+  normalizeTaskEntityKind,
+  normalizeTaskRelationshipKind,
+  type CustomFieldAppliesTo,
+  type CustomFieldType,
+  type ProjectionKind,
+  type TaskEntityRef,
+  type TaskRelationshipKind,
+} from "@/lib/types/task-projection";
+import {
+  CustomFieldDefinitionDoc,
+  CustomFieldValueDoc,
   Doc,
   EpicDoc,
   Id,
@@ -27,6 +42,9 @@ import {
   PersonaDoc,
   ProjectDoc,
   SubTodoDoc,
+  TaskProjectionDoc,
+  TaskProjectionPositionDoc,
+  TaskRelationshipDoc,
   TodoDoc,
   UserFeatureSettingsDoc,
 } from "./types";
@@ -111,6 +129,84 @@ type UserFeatureSettingsRow = {
   enabled_modules: Record<string, unknown> | null;
   task_property_visibility: Record<string, unknown> | null;
   sidebar_modules: unknown[] | null;
+};
+
+type TaskProjectionRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  projection_kind: string | null;
+  filters: Record<string, unknown> | null;
+  sort_rules: unknown[] | null;
+  lane_config: Record<string, unknown> | null;
+  display_config: Record<string, unknown> | null;
+  is_default: boolean | null;
+  is_archived: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+type TaskProjectionPositionRow = {
+  id: string;
+  projection_id: string;
+  task_kind: string;
+  todo_id: string | null;
+  sub_todo_id: string | null;
+  lane_key: string | null;
+  lane_position: number | string | null;
+  sort_rank: number | string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+type TaskRelationshipRow = {
+  id: string;
+  user_id: string;
+  relation_kind: string | null;
+  source_kind: string;
+  source_todo_id: string | null;
+  source_sub_todo_id: string | null;
+  target_kind: string;
+  target_todo_id: string | null;
+  target_sub_todo_id: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+type CustomFieldDefinitionRow = {
+  id: string;
+  user_id: string;
+  field_key: string;
+  display_name: string;
+  description: string | null;
+  field_type: string | null;
+  applies_to: string | null;
+  options: unknown[] | null;
+  validation: Record<string, unknown> | null;
+  is_required: boolean | null;
+  is_archived: boolean | null;
+  sort_order: number | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+type CustomFieldValueRow = {
+  id: string;
+  user_id: string;
+  field_id: string;
+  task_kind: string;
+  todo_id: string | null;
+  sub_todo_id: string | null;
+  value_text: string | null;
+  value_number: number | string | null;
+  value_boolean: boolean | null;
+  value_date: number | string | null;
+  value_json: unknown;
+  created_at: string | null;
+  updated_at: string | null;
 };
 
 type EisenhowerTodos = Record<PriorityQuadrant, Array<Doc<"todos">>>;
@@ -293,6 +389,389 @@ function toUserFeatureSettingsDoc(
           .filter(Boolean)
       : undefined,
   };
+}
+
+const V7_FALLBACK_ERROR_CODES = new Set([
+  "42P01", // undefined_table
+  "42703", // undefined_column
+  "PGRST204", // missing column in schema cache
+  "PGRST205", // missing table in schema cache
+]);
+
+const V7_FALLBACK_KEYWORDS = [
+  "task_projections",
+  "task_projection_positions",
+  "task_relationships",
+  "custom_field_definitions",
+  "custom_field_values",
+];
+
+const LEGACY_PROJECTION_FALLBACKS: Array<
+  Omit<TaskProjectionDoc, "_id" | "userId">
+> = [
+  {
+    name: "List View",
+    description: "Legacy fallback projection for list workflows.",
+    projectionKind: "list",
+    filters: {},
+    sortRules: [],
+    laneConfig: {},
+    displayConfig: {},
+    isDefault: true,
+    isArchived: false,
+    isVirtual: true,
+  },
+  {
+    name: "Kanban View",
+    description: "Legacy fallback projection for board workflows.",
+    projectionKind: "kanban",
+    filters: {},
+    sortRules: [],
+    laneConfig: {},
+    displayConfig: {},
+    isDefault: false,
+    isArchived: false,
+    isVirtual: true,
+  },
+  {
+    name: "Eisenhower View",
+    description: "Legacy fallback projection for matrix workflows.",
+    projectionKind: "matrix",
+    filters: {},
+    sortRules: [],
+    laneConfig: {},
+    displayConfig: {},
+    isDefault: false,
+    isArchived: false,
+    isVirtual: true,
+  },
+  {
+    name: "Calendar View",
+    description: "Legacy fallback projection for schedule workflows.",
+    projectionKind: "calendar",
+    filters: {},
+    sortRules: [],
+    laneConfig: {},
+    displayConfig: {},
+    isDefault: false,
+    isArchived: false,
+    isVirtual: true,
+  },
+];
+
+type CustomFieldValueColumns = {
+  value_text: string | null;
+  value_number: number | null;
+  value_boolean: boolean | null;
+  value_date: number | null;
+  value_json: unknown;
+};
+
+function toRecordValue(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
+function toArrayValue(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function toTaskRefOrNull({
+  taskKind,
+  todoId,
+  subTodoId,
+}: {
+  taskKind: unknown;
+  todoId: string | null;
+  subTodoId: string | null;
+}): TaskEntityRef | null {
+  const normalizedTaskKind = normalizeTaskEntityKind(
+    taskKind,
+    todoId ? "todo" : "sub_todo"
+  );
+
+  if (normalizedTaskKind === "todo") {
+    const taskId = todoId ?? subTodoId;
+    return taskId
+      ? {
+          taskKind: "todo",
+          taskId,
+        }
+      : null;
+  }
+
+  const taskId = subTodoId ?? todoId;
+  return taskId
+    ? {
+        taskKind: "sub_todo",
+        taskId,
+      }
+    : null;
+}
+
+function toTaskColumns(taskRef: TaskEntityRef) {
+  if (taskRef.taskKind === "todo") {
+    return {
+      task_kind: "todo" as const,
+      todo_id: taskRef.taskId,
+      sub_todo_id: null,
+    };
+  }
+
+  return {
+    task_kind: "sub_todo" as const,
+    todo_id: null,
+    sub_todo_id: taskRef.taskId,
+  };
+}
+
+function toTaskProjectionDoc(row: TaskProjectionRow): TaskProjectionDoc {
+  return {
+    _id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    description: row.description ?? undefined,
+    projectionKind: normalizeProjectionKind(row.projection_kind),
+    filters: toRecordValue(row.filters),
+    sortRules: toArrayValue(row.sort_rules),
+    laneConfig: toRecordValue(row.lane_config),
+    displayConfig: toRecordValue(row.display_config),
+    isDefault: Boolean(row.is_default),
+    isArchived: Boolean(row.is_archived),
+    createdAt: row.created_at ?? undefined,
+    updatedAt: row.updated_at ?? undefined,
+    isVirtual: false,
+  };
+}
+
+function toTaskProjectionPositionDoc(
+  row: TaskProjectionPositionRow
+): TaskProjectionPositionDoc | null {
+  const taskRef = toTaskRefOrNull({
+    taskKind: row.task_kind,
+    todoId: row.todo_id,
+    subTodoId: row.sub_todo_id,
+  });
+  if (!taskRef) {
+    return null;
+  }
+
+  return {
+    _id: row.id,
+    projectionId: row.projection_id,
+    taskRef,
+    laneKey: row.lane_key?.trim() || "default",
+    lanePosition: Math.max(0, Math.trunc(toFiniteNumber(row.lane_position) ?? 0)),
+    sortRank: toFiniteNumber(row.sort_rank) ?? 0,
+    metadata: toRecordValue(row.metadata),
+    createdAt: row.created_at ?? undefined,
+    updatedAt: row.updated_at ?? undefined,
+  };
+}
+
+function toTaskRelationshipDoc(row: TaskRelationshipRow): TaskRelationshipDoc | null {
+  const source = toTaskRefOrNull({
+    taskKind: row.source_kind,
+    todoId: row.source_todo_id,
+    subTodoId: row.source_sub_todo_id,
+  });
+  const target = toTaskRefOrNull({
+    taskKind: row.target_kind,
+    todoId: row.target_todo_id,
+    subTodoId: row.target_sub_todo_id,
+  });
+
+  if (!source || !target) {
+    return null;
+  }
+
+  return {
+    _id: row.id,
+    userId: row.user_id,
+    relationKind: normalizeTaskRelationshipKind(row.relation_kind),
+    source,
+    target,
+    metadata: toRecordValue(row.metadata),
+    createdAt: row.created_at ?? undefined,
+    updatedAt: row.updated_at ?? undefined,
+  };
+}
+
+function toCustomFieldDefinitionDoc(
+  row: CustomFieldDefinitionRow
+): CustomFieldDefinitionDoc {
+  return {
+    _id: row.id,
+    userId: row.user_id,
+    fieldKey: row.field_key,
+    displayName: row.display_name,
+    description: row.description ?? undefined,
+    fieldType: normalizeCustomFieldType(row.field_type),
+    appliesTo: normalizeCustomFieldAppliesTo(row.applies_to),
+    options: toArrayValue(row.options),
+    validation: toRecordValue(row.validation),
+    isRequired: Boolean(row.is_required),
+    isArchived: Boolean(row.is_archived),
+    sortOrder: Math.trunc(toFiniteNumber(row.sort_order) ?? 0),
+    createdAt: row.created_at ?? undefined,
+    updatedAt: row.updated_at ?? undefined,
+  };
+}
+
+function toCustomFieldValueDoc(row: CustomFieldValueRow): CustomFieldValueDoc | null {
+  const taskRef = toTaskRefOrNull({
+    taskKind: row.task_kind,
+    todoId: row.todo_id,
+    subTodoId: row.sub_todo_id,
+  });
+  if (!taskRef) {
+    return null;
+  }
+
+  const valueNumber = toFiniteNumber(row.value_number);
+  const valueDate = toFiniteNumber(row.value_date);
+
+  return {
+    _id: row.id,
+    userId: row.user_id,
+    fieldId: row.field_id,
+    taskRef,
+    valueText: row.value_text ?? undefined,
+    valueNumber: valueNumber ?? undefined,
+    valueBoolean:
+      typeof row.value_boolean === "boolean" ? row.value_boolean : undefined,
+    valueDate: valueDate ?? undefined,
+    valueJson: row.value_json ?? undefined,
+    createdAt: row.created_at ?? undefined,
+    updatedAt: row.updated_at ?? undefined,
+  };
+}
+
+function getLegacyProjectionFallbacks(userId: string): TaskProjectionDoc[] {
+  return LEGACY_PROJECTION_FALLBACKS.map((projection) => ({
+    ...projection,
+    _id: `legacy:${projection.projectionKind}`,
+    userId,
+  }));
+}
+
+function isV7FeatureUnavailableError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const typedError = error as {
+    code?: string;
+    message?: string;
+    details?: string | null;
+    hint?: string | null;
+  };
+
+  if (typedError.code && V7_FALLBACK_ERROR_CODES.has(typedError.code)) {
+    return true;
+  }
+
+  const blob = [typedError.message, typedError.details, typedError.hint]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ")
+    .toLowerCase();
+
+  if (!blob) {
+    return false;
+  }
+
+  return V7_FALLBACK_KEYWORDS.some((keyword) => blob.includes(keyword));
+}
+
+function getCustomFieldValueColumns({
+  fieldType,
+  value,
+}: {
+  fieldType: CustomFieldType;
+  value: unknown;
+}): CustomFieldValueColumns {
+  const baseColumns: CustomFieldValueColumns = {
+    value_text: null,
+    value_number: null,
+    value_boolean: null,
+    value_date: null,
+    value_json: null,
+  };
+
+  if (value === undefined || value === null || value === "") {
+    return baseColumns;
+  }
+
+  if (fieldType === "text" || fieldType === "single_select") {
+    baseColumns.value_text = String(value).trim();
+    return baseColumns;
+  }
+
+  if (fieldType === "number") {
+    const normalizedNumber = toFiniteNumber(value);
+    if (normalizedNumber === null) {
+      throw new Error("Custom field number value must be finite.");
+    }
+    baseColumns.value_number = normalizedNumber;
+    return baseColumns;
+  }
+
+  if (fieldType === "boolean") {
+    if (typeof value === "boolean") {
+      baseColumns.value_boolean = value;
+      return baseColumns;
+    }
+
+    if (typeof value === "string") {
+      const normalizedValue = value.trim().toLowerCase();
+      if (normalizedValue === "true") {
+        baseColumns.value_boolean = true;
+        return baseColumns;
+      }
+      if (normalizedValue === "false") {
+        baseColumns.value_boolean = false;
+        return baseColumns;
+      }
+    }
+
+    throw new Error("Custom field boolean value must be true/false.");
+  }
+
+  if (fieldType === "date") {
+    const normalizedDate = toFiniteNumber(value);
+    if (normalizedDate === null) {
+      throw new Error("Custom field date value must be a timestamp.");
+    }
+    baseColumns.value_date = Math.trunc(normalizedDate);
+    return baseColumns;
+  }
+
+  if (fieldType === "multi_select") {
+    baseColumns.value_json = Array.isArray(value)
+      ? value.map((item) => String(item))
+      : [String(value)];
+    return baseColumns;
+  }
+
+  baseColumns.value_json = value;
+  return baseColumns;
 }
 
 supabase.auth.onAuthStateChange((_event, session) => {
@@ -838,6 +1317,966 @@ export const api = {
 
       if (error) throw error;
       return toUserFeatureSettingsDoc(data as UserFeatureSettingsRow);
+    },
+  },
+
+  projections: {
+    async getProjections({
+      includeArchived = false,
+    }: {
+      includeArchived?: boolean;
+    } = {}) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return [] as TaskProjectionDoc[];
+
+      try {
+        const baseQuery = supabase
+          .from("task_projections")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("is_default", { ascending: false })
+          .order("name", { ascending: true });
+
+        const { data, error } = includeArchived
+          ? await baseQuery
+          : await baseQuery.eq("is_archived", false);
+
+        if (error) throw error;
+
+        const docs = ((data ?? []) as TaskProjectionRow[]).map(toTaskProjectionDoc);
+        if (docs.length === 0) {
+          return getLegacyProjectionFallbacks(user.id);
+        }
+
+        return docs;
+      } catch (error) {
+        if (isV7FeatureUnavailableError(error)) {
+          return getLegacyProjectionFallbacks(user.id);
+        }
+        throw error;
+      }
+    },
+
+    async createAProjection({
+      name,
+      description,
+      projectionKind = "custom",
+      filters = {},
+      sortRules = [],
+      laneConfig = {},
+      displayConfig = {},
+      isDefault = false,
+    }: {
+      name: string;
+      description?: string;
+      projectionKind?: ProjectionKind;
+      filters?: Record<string, unknown>;
+      sortRules?: unknown[];
+      laneConfig?: Record<string, unknown>;
+      displayConfig?: Record<string, unknown>;
+      isDefault?: boolean;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+
+      const trimmedName = name.trim();
+      if (!trimmedName) return null;
+
+      try {
+        if (isDefault) {
+          const { error: resetDefaultError } = await supabase
+            .from("task_projections")
+            .update({ is_default: false })
+            .eq("user_id", user.id);
+          if (resetDefaultError) throw resetDefaultError;
+        }
+
+        const { data, error } = await supabase
+          .from("task_projections")
+          .insert({
+            user_id: user.id,
+            name: trimmedName,
+            description: description?.trim() || null,
+            projection_kind: normalizeProjectionKind(projectionKind, "custom"),
+            filters: toRecordValue(filters),
+            sort_rules: toArrayValue(sortRules),
+            lane_config: toRecordValue(laneConfig),
+            display_config: toRecordValue(displayConfig),
+            is_default: isDefault,
+          })
+          .select("id")
+          .single();
+
+        if (error) throw error;
+        return data?.id ?? null;
+      } catch (error) {
+        if (isV7FeatureUnavailableError(error)) {
+          return null;
+        }
+        throw error;
+      }
+    },
+
+    async updateAProjection({
+      projectionId,
+      name,
+      description,
+      projectionKind,
+      filters,
+      sortRules,
+      laneConfig,
+      displayConfig,
+      isDefault,
+      isArchived,
+    }: {
+      projectionId: Id<"taskProjections">;
+      name?: string;
+      description?: string;
+      projectionKind?: ProjectionKind;
+      filters?: Record<string, unknown>;
+      sortRules?: unknown[];
+      laneConfig?: Record<string, unknown>;
+      displayConfig?: Record<string, unknown>;
+      isDefault?: boolean;
+      isArchived?: boolean;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+      if (projectionId.startsWith("legacy:")) return null;
+
+      const updates: Record<string, unknown> = {};
+
+      if (typeof name === "string" && name.trim()) {
+        updates.name = name.trim();
+      }
+      if (typeof description === "string") {
+        updates.description = description.trim() || null;
+      }
+      if (projectionKind) {
+        updates.projection_kind = normalizeProjectionKind(projectionKind, "custom");
+      }
+      if (filters) {
+        updates.filters = toRecordValue(filters);
+      }
+      if (sortRules) {
+        updates.sort_rules = toArrayValue(sortRules);
+      }
+      if (laneConfig) {
+        updates.lane_config = toRecordValue(laneConfig);
+      }
+      if (displayConfig) {
+        updates.display_config = toRecordValue(displayConfig);
+      }
+      if (typeof isDefault === "boolean") {
+        updates.is_default = isDefault;
+      }
+      if (typeof isArchived === "boolean") {
+        updates.is_archived = isArchived;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return projectionId;
+      }
+
+      try {
+        if (updates.is_default === true) {
+          const { error: resetDefaultError } = await supabase
+            .from("task_projections")
+            .update({ is_default: false })
+            .eq("user_id", user.id)
+            .neq("id", projectionId);
+          if (resetDefaultError) throw resetDefaultError;
+        }
+
+        const { data, error } = await supabase
+          .from("task_projections")
+          .update(updates)
+          .eq("id", projectionId)
+          .eq("user_id", user.id)
+          .select("id")
+          .maybeSingle();
+        if (error) throw error;
+        return data?.id ?? null;
+      } catch (error) {
+        if (isV7FeatureUnavailableError(error)) {
+          return null;
+        }
+        throw error;
+      }
+    },
+
+    async deleteProjection({
+      projectionId,
+    }: {
+      projectionId: Id<"taskProjections">;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+      if (projectionId.startsWith("legacy:")) return null;
+
+      try {
+        const { error } = await supabase
+          .from("task_projections")
+          .delete()
+          .eq("id", projectionId)
+          .eq("user_id", user.id);
+        if (error) throw error;
+        return projectionId;
+      } catch (error) {
+        if (isV7FeatureUnavailableError(error)) {
+          return null;
+        }
+        throw error;
+      }
+    },
+
+    async getProjectionPositions({
+      projectionId,
+    }: {
+      projectionId: Id<"taskProjections">;
+    }) {
+      if (projectionId.startsWith("legacy:")) {
+        return [] as TaskProjectionPositionDoc[];
+      }
+
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return [] as TaskProjectionPositionDoc[];
+
+      try {
+        const { data, error } = await supabase
+          .from("task_projection_positions")
+          .select("*")
+          .eq("projection_id", projectionId)
+          .order("lane_key", { ascending: true })
+          .order("lane_position", { ascending: true })
+          .order("sort_rank", { ascending: true });
+        if (error) throw error;
+
+        return ((data ?? []) as TaskProjectionPositionRow[])
+          .map(toTaskProjectionPositionDoc)
+          .filter(
+            (value): value is TaskProjectionPositionDoc => value !== null
+          );
+      } catch (error) {
+        if (isV7FeatureUnavailableError(error)) {
+          return [] as TaskProjectionPositionDoc[];
+        }
+        throw error;
+      }
+    },
+
+    async upsertProjectionPosition({
+      projectionId,
+      taskRef,
+      laneKey = "default",
+      lanePosition = 0,
+      sortRank = 0,
+      metadata = {},
+    }: {
+      projectionId: Id<"taskProjections">;
+      taskRef: TaskEntityRef;
+      laneKey?: string;
+      lanePosition?: number;
+      sortRank?: number;
+      metadata?: Record<string, unknown>;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+      if (projectionId.startsWith("legacy:")) return null;
+
+      const taskColumns = toTaskColumns(taskRef);
+      const taskIdColumn = taskRef.taskKind === "todo" ? "todo_id" : "sub_todo_id";
+      const normalizedLaneKey = laneKey.trim() || "default";
+      const normalizedLanePosition =
+        Number.isFinite(lanePosition) && typeof lanePosition === "number"
+          ? Math.max(0, Math.trunc(lanePosition))
+          : 0;
+      const normalizedSortRank =
+        Number.isFinite(sortRank) && typeof sortRank === "number"
+          ? sortRank
+          : normalizedLanePosition;
+
+      try {
+        const { data: existing, error: existingError } = await supabase
+          .from("task_projection_positions")
+          .select("id")
+          .eq("projection_id", projectionId)
+          .eq("task_kind", taskColumns.task_kind)
+          .eq(taskIdColumn, taskRef.taskId)
+          .maybeSingle();
+        if (existingError) throw existingError;
+
+        if (existing?.id) {
+          const { data, error } = await supabase
+            .from("task_projection_positions")
+            .update({
+              lane_key: normalizedLaneKey,
+              lane_position: normalizedLanePosition,
+              sort_rank: normalizedSortRank,
+              metadata: toRecordValue(metadata),
+            })
+            .eq("id", existing.id)
+            .select("id")
+            .single();
+          if (error) throw error;
+          return data?.id ?? null;
+        }
+
+        const { data, error } = await supabase
+          .from("task_projection_positions")
+          .insert({
+            projection_id: projectionId,
+            ...taskColumns,
+            lane_key: normalizedLaneKey,
+            lane_position: normalizedLanePosition,
+            sort_rank: normalizedSortRank,
+            metadata: toRecordValue(metadata),
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
+        return data?.id ?? null;
+      } catch (error) {
+        if (isV7FeatureUnavailableError(error)) {
+          return null;
+        }
+        throw error;
+      }
+    },
+
+    async moveTaskInProjection({
+      projectionId,
+      taskRef,
+      destinationLaneKey,
+      destinationLanePosition,
+      destinationSortRank,
+    }: {
+      projectionId: Id<"taskProjections">;
+      taskRef: TaskEntityRef;
+      destinationLaneKey: string;
+      destinationLanePosition: number;
+      destinationSortRank?: number;
+    }) {
+      return api.projections.upsertProjectionPosition({
+        projectionId,
+        taskRef,
+        laneKey: destinationLaneKey,
+        lanePosition: destinationLanePosition,
+        sortRank: destinationSortRank ?? destinationLanePosition,
+      });
+    },
+
+    async upsertProjectionPositions({
+      projectionId,
+      positions,
+    }: {
+      projectionId: Id<"taskProjections">;
+      positions: Array<{
+        taskRef: TaskEntityRef;
+        laneKey: string;
+        lanePosition: number;
+        sortRank?: number;
+      }>;
+    }) {
+      const updates: string[] = [];
+      for (let index = 0; index < positions.length; index += 1) {
+        const position = positions[index];
+        if (!position) {
+          continue;
+        }
+
+        const id = await api.projections.upsertProjectionPosition({
+          projectionId,
+          taskRef: position.taskRef,
+          laneKey: position.laneKey,
+          lanePosition: position.lanePosition,
+          sortRank: position.sortRank ?? position.lanePosition ?? index,
+        });
+        if (id) {
+          updates.push(id);
+        }
+      }
+      return updates;
+    },
+
+    async deleteProjectionPosition({
+      projectionId,
+      taskRef,
+    }: {
+      projectionId: Id<"taskProjections">;
+      taskRef: TaskEntityRef;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+      if (projectionId.startsWith("legacy:")) return null;
+
+      const taskColumns = toTaskColumns(taskRef);
+      const taskIdColumn = taskRef.taskKind === "todo" ? "todo_id" : "sub_todo_id";
+
+      try {
+        const { error } = await supabase
+          .from("task_projection_positions")
+          .delete()
+          .eq("projection_id", projectionId)
+          .eq("task_kind", taskColumns.task_kind)
+          .eq(taskIdColumn, taskRef.taskId);
+        if (error) throw error;
+        return taskRef.taskId;
+      } catch (error) {
+        if (isV7FeatureUnavailableError(error)) {
+          return null;
+        }
+        throw error;
+      }
+    },
+  },
+
+  relationships: {
+    async getTaskRelationships({
+      taskRef,
+    }: {
+      taskRef: TaskEntityRef;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return [] as TaskRelationshipDoc[];
+
+      const orFilter =
+        taskRef.taskKind === "todo"
+          ? `source_todo_id.eq.${taskRef.taskId},target_todo_id.eq.${taskRef.taskId}`
+          : `source_sub_todo_id.eq.${taskRef.taskId},target_sub_todo_id.eq.${taskRef.taskId}`;
+
+      try {
+        const { data, error } = await supabase
+          .from("task_relationships")
+          .select("*")
+          .eq("user_id", user.id)
+          .or(orFilter)
+          .order("created_at", { ascending: true });
+        if (error) throw error;
+
+        return ((data ?? []) as TaskRelationshipRow[])
+          .map(toTaskRelationshipDoc)
+          .filter((value): value is TaskRelationshipDoc => value !== null);
+      } catch (error) {
+        if (isV7FeatureUnavailableError(error)) {
+          return [] as TaskRelationshipDoc[];
+        }
+        throw error;
+      }
+    },
+
+    async createATaskRelationship({
+      relationKind = "depends_on",
+      source,
+      target,
+      metadata = {},
+    }: {
+      relationKind?: TaskRelationshipKind;
+      source: TaskEntityRef;
+      target: TaskEntityRef;
+      metadata?: Record<string, unknown>;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+
+      if (source.taskKind === target.taskKind && source.taskId === target.taskId) {
+        throw new Error("Cannot create relationship from a task to itself.");
+      }
+
+      const sourceColumns = toTaskColumns(source);
+      const targetColumns = toTaskColumns(target);
+      const sourceIdColumn =
+        source.taskKind === "todo" ? "source_todo_id" : "source_sub_todo_id";
+      const targetIdColumn =
+        target.taskKind === "todo" ? "target_todo_id" : "target_sub_todo_id";
+      const normalizedRelationKind = normalizeTaskRelationshipKind(relationKind);
+
+      try {
+        const { data: existing, error: existingError } = await supabase
+          .from("task_relationships")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("relation_kind", normalizedRelationKind)
+          .eq("source_kind", sourceColumns.task_kind)
+          .eq("target_kind", targetColumns.task_kind)
+          .eq(sourceIdColumn, source.taskId)
+          .eq(targetIdColumn, target.taskId)
+          .maybeSingle();
+        if (existingError) throw existingError;
+        if (existing?.id) {
+          return existing.id;
+        }
+
+        const { data, error } = await supabase
+          .from("task_relationships")
+          .insert({
+            user_id: user.id,
+            relation_kind: normalizedRelationKind,
+            source_kind: sourceColumns.task_kind,
+            source_todo_id: source.taskKind === "todo" ? source.taskId : null,
+            source_sub_todo_id:
+              source.taskKind === "sub_todo" ? source.taskId : null,
+            target_kind: targetColumns.task_kind,
+            target_todo_id: target.taskKind === "todo" ? target.taskId : null,
+            target_sub_todo_id:
+              target.taskKind === "sub_todo" ? target.taskId : null,
+            metadata: toRecordValue(metadata),
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
+        return data?.id ?? null;
+      } catch (error) {
+        if (isV7FeatureUnavailableError(error)) {
+          return null;
+        }
+        throw error;
+      }
+    },
+
+    async deleteTaskRelationship({
+      relationshipId,
+    }: {
+      relationshipId: Id<"taskRelationships">;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+
+      try {
+        const { error } = await supabase
+          .from("task_relationships")
+          .delete()
+          .eq("id", relationshipId)
+          .eq("user_id", user.id);
+        if (error) throw error;
+        return relationshipId;
+      } catch (error) {
+        if (isV7FeatureUnavailableError(error)) {
+          return null;
+        }
+        throw error;
+      }
+    },
+
+    async deleteTaskRelationshipByEdge({
+      relationKind = "depends_on",
+      source,
+      target,
+    }: {
+      relationKind?: TaskRelationshipKind;
+      source: TaskEntityRef;
+      target: TaskEntityRef;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+
+      const sourceIdColumn =
+        source.taskKind === "todo" ? "source_todo_id" : "source_sub_todo_id";
+      const targetIdColumn =
+        target.taskKind === "todo" ? "target_todo_id" : "target_sub_todo_id";
+
+      try {
+        const { data, error } = await supabase
+          .from("task_relationships")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("relation_kind", normalizeTaskRelationshipKind(relationKind))
+          .eq("source_kind", source.taskKind)
+          .eq("target_kind", target.taskKind)
+          .eq(sourceIdColumn, source.taskId)
+          .eq(targetIdColumn, target.taskId)
+          .select("id")
+          .maybeSingle();
+        if (error) throw error;
+        return data?.id ?? null;
+      } catch (error) {
+        if (isV7FeatureUnavailableError(error)) {
+          return null;
+        }
+        throw error;
+      }
+    },
+  },
+
+  customFields: {
+    async getCustomFieldDefinitions({
+      includeArchived = false,
+      appliesTo,
+    }: {
+      includeArchived?: boolean;
+      appliesTo?: CustomFieldAppliesTo;
+    } = {}) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return [] as CustomFieldDefinitionDoc[];
+
+      try {
+        let query = supabase
+          .from("custom_field_definitions")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("sort_order", { ascending: true })
+          .order("display_name", { ascending: true });
+
+        if (!includeArchived) {
+          query = query.eq("is_archived", false);
+        }
+
+        const normalizedAppliesTo = appliesTo
+          ? normalizeCustomFieldAppliesTo(appliesTo)
+          : null;
+
+        if (normalizedAppliesTo && normalizedAppliesTo !== "both") {
+          query = query.in("applies_to", [normalizedAppliesTo, "both"]);
+        } else if (normalizedAppliesTo === "both") {
+          query = query.eq("applies_to", "both");
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        return ((data ?? []) as CustomFieldDefinitionRow[]).map(
+          toCustomFieldDefinitionDoc
+        );
+      } catch (error) {
+        if (isV7FeatureUnavailableError(error)) {
+          return [] as CustomFieldDefinitionDoc[];
+        }
+        throw error;
+      }
+    },
+
+    async createACustomFieldDefinition({
+      fieldKey,
+      displayName,
+      description,
+      fieldType = "text",
+      appliesTo = "both",
+      options = [],
+      validation = {},
+      isRequired = false,
+      sortOrder = 0,
+    }: {
+      fieldKey: string;
+      displayName: string;
+      description?: string;
+      fieldType?: CustomFieldType;
+      appliesTo?: CustomFieldAppliesTo;
+      options?: unknown[];
+      validation?: Record<string, unknown>;
+      isRequired?: boolean;
+      sortOrder?: number;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+
+      const normalizedFieldKey = normalizeCustomFieldKey(fieldKey);
+      const normalizedDisplayName = displayName.trim();
+
+      if (!normalizedFieldKey || !normalizedDisplayName) {
+        return null;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("custom_field_definitions")
+          .insert({
+            user_id: user.id,
+            field_key: normalizedFieldKey,
+            display_name: normalizedDisplayName,
+            description: description?.trim() || null,
+            field_type: normalizeCustomFieldType(fieldType, "text"),
+            applies_to: normalizeCustomFieldAppliesTo(appliesTo, "both"),
+            options: toArrayValue(options),
+            validation: toRecordValue(validation),
+            is_required: Boolean(isRequired),
+            sort_order:
+              Number.isFinite(sortOrder) && typeof sortOrder === "number"
+                ? Math.trunc(sortOrder)
+                : 0,
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
+        return data?.id ?? null;
+      } catch (error) {
+        if (isV7FeatureUnavailableError(error)) {
+          return null;
+        }
+        throw error;
+      }
+    },
+
+    async updateCustomFieldDefinition({
+      fieldId,
+      fieldKey,
+      displayName,
+      description,
+      fieldType,
+      appliesTo,
+      options,
+      validation,
+      isRequired,
+      isArchived,
+      sortOrder,
+    }: {
+      fieldId: Id<"customFieldDefinitions">;
+      fieldKey?: string;
+      displayName?: string;
+      description?: string;
+      fieldType?: CustomFieldType;
+      appliesTo?: CustomFieldAppliesTo;
+      options?: unknown[];
+      validation?: Record<string, unknown>;
+      isRequired?: boolean;
+      isArchived?: boolean;
+      sortOrder?: number;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+
+      const updates: Record<string, unknown> = {};
+
+      if (typeof fieldKey === "string") {
+        const normalizedFieldKey = normalizeCustomFieldKey(fieldKey);
+        if (!normalizedFieldKey) return null;
+        updates.field_key = normalizedFieldKey;
+      }
+      if (typeof displayName === "string" && displayName.trim()) {
+        updates.display_name = displayName.trim();
+      }
+      if (typeof description === "string") {
+        updates.description = description.trim() || null;
+      }
+      if (fieldType) {
+        updates.field_type = normalizeCustomFieldType(fieldType, "text");
+      }
+      if (appliesTo) {
+        updates.applies_to = normalizeCustomFieldAppliesTo(appliesTo, "both");
+      }
+      if (options) {
+        updates.options = toArrayValue(options);
+      }
+      if (validation) {
+        updates.validation = toRecordValue(validation);
+      }
+      if (typeof isRequired === "boolean") {
+        updates.is_required = isRequired;
+      }
+      if (typeof isArchived === "boolean") {
+        updates.is_archived = isArchived;
+      }
+      if (typeof sortOrder === "number" && Number.isFinite(sortOrder)) {
+        updates.sort_order = Math.trunc(sortOrder);
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return fieldId;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("custom_field_definitions")
+          .update(updates)
+          .eq("id", fieldId)
+          .eq("user_id", user.id)
+          .select("id")
+          .maybeSingle();
+        if (error) throw error;
+        return data?.id ?? null;
+      } catch (error) {
+        if (isV7FeatureUnavailableError(error)) {
+          return null;
+        }
+        throw error;
+      }
+    },
+
+    async deleteCustomFieldDefinition({
+      fieldId,
+    }: {
+      fieldId: Id<"customFieldDefinitions">;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+
+      try {
+        const { error } = await supabase
+          .from("custom_field_definitions")
+          .delete()
+          .eq("id", fieldId)
+          .eq("user_id", user.id);
+        if (error) throw error;
+        return fieldId;
+      } catch (error) {
+        if (isV7FeatureUnavailableError(error)) {
+          return null;
+        }
+        throw error;
+      }
+    },
+
+    async getCustomFieldValuesForTask({
+      taskRef,
+    }: {
+      taskRef: TaskEntityRef;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return [] as CustomFieldValueDoc[];
+
+      const taskIdColumn = taskRef.taskKind === "todo" ? "todo_id" : "sub_todo_id";
+
+      try {
+        const { data, error } = await supabase
+          .from("custom_field_values")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("task_kind", taskRef.taskKind)
+          .eq(taskIdColumn, taskRef.taskId)
+          .order("created_at", { ascending: true });
+        if (error) throw error;
+
+        return ((data ?? []) as CustomFieldValueRow[])
+          .map(toCustomFieldValueDoc)
+          .filter((value): value is CustomFieldValueDoc => value !== null);
+      } catch (error) {
+        if (isV7FeatureUnavailableError(error)) {
+          return [] as CustomFieldValueDoc[];
+        }
+        throw error;
+      }
+    },
+
+    async upsertCustomFieldValue({
+      fieldId,
+      taskRef,
+      value,
+    }: {
+      fieldId: Id<"customFieldDefinitions">;
+      taskRef: TaskEntityRef;
+      value: unknown;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+
+      try {
+        const { data: definitionRow, error: definitionError } = await supabase
+          .from("custom_field_definitions")
+          .select("field_type, applies_to")
+          .eq("id", fieldId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (definitionError) throw definitionError;
+        if (!definitionRow) return null;
+
+        const definition = definitionRow as Pick<
+          CustomFieldDefinitionRow,
+          "field_type" | "applies_to"
+        >;
+        const normalizedAppliesTo = normalizeCustomFieldAppliesTo(
+          definition.applies_to,
+          "both"
+        );
+
+        if (
+          normalizedAppliesTo !== "both" &&
+          normalizedAppliesTo !== taskRef.taskKind
+        ) {
+          throw new Error(
+            `Custom field does not apply to task kind: ${taskRef.taskKind}`
+          );
+        }
+
+        const valueColumns = getCustomFieldValueColumns({
+          fieldType: normalizeCustomFieldType(definition.field_type, "text"),
+          value,
+        });
+
+        const hasValue =
+          valueColumns.value_text !== null ||
+          valueColumns.value_number !== null ||
+          valueColumns.value_boolean !== null ||
+          valueColumns.value_date !== null ||
+          valueColumns.value_json !== null;
+
+        const taskColumns = toTaskColumns(taskRef);
+        const taskIdColumn = taskRef.taskKind === "todo" ? "todo_id" : "sub_todo_id";
+
+        if (!hasValue) {
+          const { error: deleteError } = await supabase
+            .from("custom_field_values")
+            .delete()
+            .eq("field_id", fieldId)
+            .eq("task_kind", taskColumns.task_kind)
+            .eq(taskIdColumn, taskRef.taskId)
+            .eq("user_id", user.id);
+          if (deleteError) throw deleteError;
+          return null;
+        }
+
+        const { data: existing, error: existingError } = await supabase
+          .from("custom_field_values")
+          .select("id")
+          .eq("field_id", fieldId)
+          .eq("task_kind", taskColumns.task_kind)
+          .eq(taskIdColumn, taskRef.taskId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (existingError) throw existingError;
+
+        if (existing?.id) {
+          const { data, error } = await supabase
+            .from("custom_field_values")
+            .update(valueColumns)
+            .eq("id", existing.id)
+            .eq("user_id", user.id)
+            .select("id")
+            .single();
+          if (error) throw error;
+          return data?.id ?? null;
+        }
+
+        const { data, error } = await supabase
+          .from("custom_field_values")
+          .insert({
+            user_id: user.id,
+            field_id: fieldId,
+            ...taskColumns,
+            ...valueColumns,
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
+        return data?.id ?? null;
+      } catch (error) {
+        if (isV7FeatureUnavailableError(error)) {
+          return null;
+        }
+        throw error;
+      }
+    },
+
+    async upsertCustomFieldValues({
+      taskRef,
+      values,
+    }: {
+      taskRef: TaskEntityRef;
+      values: Array<{
+        fieldId: Id<"customFieldDefinitions">;
+        value: unknown;
+      }>;
+    }) {
+      const updatedIds: string[] = [];
+      for (const item of values) {
+        const updatedId = await api.customFields.upsertCustomFieldValue({
+          fieldId: item.fieldId,
+          taskRef,
+          value: item.value,
+        });
+        if (updatedId) {
+          updatedIds.push(updatedId);
+        }
+      }
+      return updatedIds;
     },
   },
 
