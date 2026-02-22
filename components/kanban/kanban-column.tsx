@@ -1,12 +1,33 @@
 import { cn } from "@/lib/utils";
 import { Doc } from "@/lib/supabase/types";
 import Todos from "../todos/todos";
+import QuickTaskInput from "../shared/quick-task-input";
 import { KanbanColumnKey } from "./metadata";
+import type { TodoStatus } from "@/lib/types/priority";
+import type { WorkflowStatus } from "@/lib/types/task-payload";
 
 const COLUMN_BADGE_STYLES: Record<KanbanColumnKey, string> = {
   TODO: "bg-blue-500/10 text-blue-700 dark:text-blue-300",
   IN_PROGRESS: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
   DONE: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+};
+
+const COLUMN_QUICK_TASK_DEFAULTS: Record<
+  KanbanColumnKey,
+  { status: TodoStatus; workflowStatus: WorkflowStatus }
+> = {
+  TODO: {
+    status: "TODO",
+    workflowStatus: "BACKLOG",
+  },
+  IN_PROGRESS: {
+    status: "IN_PROGRESS",
+    workflowStatus: "THIS_WEEK",
+  },
+  DONE: {
+    status: "DONE",
+    workflowStatus: "DONE",
+  },
 };
 
 export default function KanbanColumn({
@@ -37,12 +58,13 @@ export default function KanbanColumn({
         </span>
       </div>
 
-      <div className="pt-2">
+      <div className="pt-2 space-y-2">
         {items.length > 0 ? (
           <Todos items={items} />
         ) : (
           <p className="text-sm text-foreground/60 py-2">No tasks</p>
         )}
+        <QuickTaskInput defaultValues={COLUMN_QUICK_TASK_DEFAULTS[column]} />
       </div>
     </section>
   );

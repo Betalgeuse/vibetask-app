@@ -5,6 +5,7 @@ import { useQuery, useMutation } from "@/lib/supabase/hooks";
 import { api } from "@/lib/supabase/api";
 import { Doc } from "@/lib/supabase/types";
 import { AddTaskWrapper } from "../add-tasks/add-task-button";
+import QuickTaskInput from "../shared/quick-task-input";
 import {
   EISENHOWER_QUADRANT_META,
   EisenhowerQuadrantKey,
@@ -81,6 +82,7 @@ function TaskCard({ task, onCheck }: TaskCardProps) {
 }
 
 interface DroppableQuadrantProps {
+  quadrantKey: EisenhowerQuadrantKey;
   title: string;
   subtitle: string;
   items: Array<Doc<"todos">>;
@@ -88,6 +90,7 @@ interface DroppableQuadrantProps {
 }
 
 function DroppableQuadrant({
+  quadrantKey,
   title,
   subtitle,
   items,
@@ -117,6 +120,9 @@ function DroppableQuadrant({
         ) : (
           <p className="text-sm text-foreground/60 py-2">No tasks</p>
         )}
+        <div className="pt-2">
+          <QuickTaskInput defaultValues={{ priority: quadrantKey }} />
+        </div>
       </div>
     </section>
   );
@@ -211,6 +217,7 @@ export default function Eisenhower() {
           return (
             <DroppableQuadrant
               key={key}
+              quadrantKey={key}
               title={title}
               subtitle={subtitle}
               items={items}
