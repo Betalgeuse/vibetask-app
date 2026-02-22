@@ -32,6 +32,13 @@ yarn-error.log*
 # omx local runtime state
 .omx/
 
+# next-pwa generated files
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+public/fallback-*.js
+
 # vercel
 .vercel
 

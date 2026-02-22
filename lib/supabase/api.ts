@@ -457,6 +457,41 @@ async function listAllTodosForUser(userId: string) {
   return (data ?? []) as TodoRow[];
 }
 
+export type AiSuggestedReference =
+  | {
+      type: "existing";
+      id: string;
+      name: string;
+    }
+  | {
+      type: "new";
+      name: string;
+    };
+
+export type AiSuggestedTodo = {
+  taskName: string;
+  description: string | null;
+  suggestedLabel: AiSuggestedReference;
+  suggestedPersona?: AiSuggestedReference;
+  suggestedEpic?: AiSuggestedReference;
+  suggestedStory?: string;
+  suggestedWorkload?: number;
+};
+
+export type AiSuggestionEnabledModules = {
+  persona: boolean;
+  epic: boolean;
+  story: boolean;
+  workload: boolean;
+};
+
+export type AiSuggestionsResponse = {
+  created: number;
+  autoCreated: boolean;
+  enabledModules: AiSuggestionEnabledModules;
+  recommendations: AiSuggestedTodo[];
+};
+
 export const api = {
   projects: {
     async getProjects() {
@@ -1463,16 +1498,22 @@ export const api = {
   },
 
   openai: {
-    async suggestMissingItemsWithAi({ projectId }: { projectId: Id<"projects"> }) {
+    async suggestMissingItemsWithAi({
+      projectId,
+      autoCreate = true,
+    }: {
+      projectId: Id<"projects">;
+      autoCreate?: boolean;
+    }) {
       const response = await fetch("/api/ai/suggest-tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId }),
+        body: JSON.stringify({ projectId, autoCreate }),
       });
       if (!response.ok) {
         throw new Error("Failed to suggest tasks with AI");
       }
-      return response.json();
+      return (await response.json()) as AiSuggestionsResponse;
     },
 
     async suggestMissingSubItemsWithAi({
@@ -1480,11 +1521,13 @@ export const api = {
       parentId,
       taskName,
       description,
+      autoCreate = true,
     }: {
       projectId: Id<"projects">;
       parentId: Id<"todos">;
-      taskName: string;
-      description: string;
+      taskName?: string;
+      description?: string;
+      autoCreate?: boolean;
     }) {
       const response = await fetch("/api/ai/suggest-subtasks", {
         method: "POST",
@@ -1494,12 +1537,13 @@ export const api = {
           parentId,
           taskName,
           description,
+          autoCreate,
         }),
       });
       if (!response.ok) {
         throw new Error("Failed to suggest sub tasks with AI");
       }
-      return response.json();
+      return (await response.json()) as AiSuggestionsResponse;
     },
   },
 };
