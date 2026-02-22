@@ -6,17 +6,21 @@ import { redirect } from "next/navigation";
 
 function getOriginFromHeaders() {
   const normalize = (value: string) => value.replace(/\/+$/, "");
+  const headerList = headers();
+  const forwardedHost = headerList.get("x-forwarded-host");
+  const rawHost = forwardedHost ?? headerList.get("host");
+  const host = rawHost?.split(",")[0]?.trim();
+  const rawProtocol = headerList.get("x-forwarded-proto");
+  const protocol = rawProtocol?.split(",")[0]?.trim();
+
+  if (host) {
+    const resolvedProtocol =
+      protocol ?? (host.includes("localhost") ? "http" : "https");
+    return normalize(`${resolvedProtocol}://${host}`);
+  }
 
   if (process.env.NEXT_PUBLIC_SITE_URL) {
     return normalize(process.env.NEXT_PUBLIC_SITE_URL);
-  }
-
-  const headerList = headers();
-  const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
-  const protocol = headerList.get("x-forwarded-proto") ?? "http";
-
-  if (host) {
-    return normalize(`${protocol}://${host}`);
   }
 
   return "http://localhost:3000";
