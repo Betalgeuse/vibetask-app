@@ -12,6 +12,7 @@ import {
   KanbanColumnKey,
   getTodoStoredKanbanColumn,
 } from "../kanban/metadata";
+import ProjectionSwitcher from "../projection/projection-switcher";
 
 type KanbanTodos = Record<KanbanColumnKey, Array<Doc<"todos">>>;
 
@@ -58,7 +59,10 @@ export default function Kanban() {
     <div className="xl:px-40">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h1 className="text-lg font-semibold md:text-2xl">Kanban Board</h1>
-        <AddTaskWrapper />
+        <div className="flex items-center gap-2 flex-wrap">
+          <ProjectionSwitcher projectionKind="kanban" />
+          <AddTaskWrapper />
+        </div>
       </div>
       <p className="text-sm text-foreground/70 mt-2 mb-4">
         Organize tasks by workflow stage.

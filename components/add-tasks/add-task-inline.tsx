@@ -5,6 +5,13 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
+import { CustomFieldInput } from "@/components/custom-fields/custom-field-input";
+import {
+  buildCustomFieldDraftValues,
+  buildCustomFieldUpsertInputs,
+  type CustomFieldDraftValue,
+  type CustomFieldDraftValues,
+} from "@/components/custom-fields/custom-field-utils";
 import {
   Form,
   FormControl,
@@ -17,7 +24,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { CalendarIcon, Text } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { CardFooter } from "../ui/card";
-import { Dispatch, SetStateAction, useEffect, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Calendar } from "../ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
@@ -47,6 +54,7 @@ import {
   normalizeWorkflowStatus,
   type TaskPayload,
 } from "@/lib/types/task-payload";
+import { type TaskEntityRef } from "@/lib/types/task-projection";
 
 const FormSchema = z.object({
   taskName: z.string().min(2, {
@@ -65,6 +73,11 @@ const FormSchema = z.object({
 });
 
 type AddTaskFormValues = z.infer<typeof FormSchema>;
+
+type PendingTaskData = {
+  formValues: AddTaskFormValues;
+  customFieldDrafts: CustomFieldDraftValues;
+};
 
 export default function AddTaskInline({
   setShowAddTask,
@@ -90,6 +103,17 @@ export default function AddTaskInline({
   const defaultPersonaId = parentTask?.personaId || personas[0]?._id || "";
   const priority = parentTask?.priority?.toString() || "";
   const parentId = parentTask?._id;
+  const taskKind: TaskEntityRef["taskKind"] = parentId ? "sub_todo" : "todo";
+  const customFieldDefinitionsQuery = useQuery(
+    api.customFields.getCustomFieldDefinitions,
+    {
+      appliesTo: taskKind,
+    }
+  );
+  const customFieldDefinitions = useMemo(
+    () => customFieldDefinitionsQuery ?? [],
+    [customFieldDefinitionsQuery]
+  );
 
   const { toast } = useToast();
 
@@ -98,6 +122,7 @@ export default function AddTaskInline({
   );
 
   const createTodoEmbeddings = useAction(api.todos.createTodoAndEmbeddings);
+  const upsertCustomFieldValues = useAction(api.customFields.upsertCustomFieldValues);
 
   const defaultValues: AddTaskFormValues = {
     taskName: "",
@@ -118,8 +143,11 @@ export default function AddTaskInline({
     defaultValues,
   });
 
-  const [pendingTaskData, setPendingTaskData] =
-    useState<AddTaskFormValues | null>(null);
+  const [pendingTaskData, setPendingTaskData] = useState<PendingTaskData | null>(
+    null
+  );
+  const [customFieldDrafts, setCustomFieldDrafts] =
+    useState<CustomFieldDraftValues>({});
   const [prioritySuggestionOpen, setPrioritySuggestionOpen] = useState(false);
   const [isResolvingPriority, setIsResolvingPriority] = useState(false);
   const [isSavingTask, setIsSavingTask] = useState(false);
@@ -164,9 +192,31 @@ export default function AddTaskInline({
     }
   }, [defaultPersonaId, enabledModules.persona, form]);
 
+  useEffect(() => {
+    setCustomFieldDrafts((previousDrafts) => {
+      if (customFieldDefinitions.length === 0) {
+        return {};
+      }
+
+      const emptyDrafts = buildCustomFieldDraftValues({
+        definitions: customFieldDefinitions,
+        values: [],
+      });
+
+      for (const definition of customFieldDefinitions) {
+        if (definition._id in previousDrafts) {
+          emptyDrafts[definition._id] = previousDrafts[definition._id];
+        }
+      }
+
+      return emptyDrafts;
+    });
+  }, [customFieldDefinitions]);
+
   async function createTaskWithPriority(
     data: AddTaskFormValues,
-    resolvedPriority: PriorityQuadrant
+    resolvedPriority: PriorityQuadrant,
+    customFieldValues: CustomFieldDraftValues
   ) {
     const {
       taskName,
@@ -225,8 +275,10 @@ export default function AddTaskInline({
     setIsSavingTask(true);
 
     try {
+      let createdTaskId: string | null = null;
+
       if (parentId) {
-        await createASubTodoEmbeddings({
+        createdTaskId = await createASubTodoEmbeddings({
           parentId,
           taskName,
           description,
@@ -248,7 +300,7 @@ export default function AddTaskInline({
           payload,
         });
       } else {
-        await createTodoEmbeddings({
+        createdTaskId = await createTodoEmbeddings({
           taskName,
           description,
           story: enabledModules.story ? story || undefined : undefined,
@@ -270,6 +322,28 @@ export default function AddTaskInline({
         });
       }
 
+      const customFieldUpserts = buildCustomFieldUpsertInputs({
+        definitions: customFieldDefinitions,
+        drafts: customFieldValues,
+      });
+
+      if (createdTaskId && customFieldUpserts.length > 0) {
+        try {
+          await upsertCustomFieldValues({
+            taskRef: {
+              taskKind,
+              taskId: createdTaskId,
+            },
+            values: customFieldUpserts,
+          });
+        } catch (customFieldError) {
+          console.error(
+            "Task created, but custom field values failed to save.",
+            customFieldError
+          );
+        }
+      }
+
       toast({
         title: "🦄 Created a task!",
         duration: 3000,
@@ -279,6 +353,12 @@ export default function AddTaskInline({
       setSuggestedPriority(null);
       setPrioritySuggestionOpen(false);
       form.reset({ ...defaultValues });
+      setCustomFieldDrafts(
+        buildCustomFieldDraftValues({
+          definitions: customFieldDefinitions,
+          values: [],
+        })
+      );
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to create task.";
@@ -298,7 +378,11 @@ export default function AddTaskInline({
       return;
     }
 
-    await createTaskWithPriority(pendingTaskData, quadrant);
+    await createTaskWithPriority(
+      pendingTaskData.formValues,
+      quadrant,
+      pendingTaskData.customFieldDrafts
+    );
   }
 
   async function onSubmit(data: AddTaskFormValues) {
@@ -314,7 +398,7 @@ export default function AddTaskInline({
         });
         return;
       }
-      await createTaskWithPriority(data, normalizedPriority);
+      await createTaskWithPriority(data, normalizedPriority, customFieldDrafts);
       return;
     }
 
@@ -330,7 +414,10 @@ export default function AddTaskInline({
         projectId: resolvedProjectId,
       });
 
-      setPendingTaskData(data);
+      setPendingTaskData({
+        formValues: data,
+        customFieldDrafts: { ...customFieldDrafts },
+      });
       setSuggestedPriority(suggestion);
       setPrioritySuggestionOpen(true);
 
@@ -345,12 +432,25 @@ export default function AddTaskInline({
       const fallback = createFallbackPrioritySuggestion(
         "AI suggestion failed. Using default priority suggestion."
       );
-      setPendingTaskData(data);
+      setPendingTaskData({
+        formValues: data,
+        customFieldDrafts: { ...customFieldDrafts },
+      });
       setSuggestedPriority(fallback);
       setPrioritySuggestionOpen(true);
     } finally {
       setIsResolvingPriority(false);
     }
+  }
+
+  function onCustomFieldDraftChange(
+    fieldId: string,
+    nextValue: CustomFieldDraftValue
+  ) {
+    setCustomFieldDrafts((previousDrafts) => ({
+      ...previousDrafts,
+      [fieldId]: nextValue,
+    }));
   }
 
   const isSubmitting = isResolvingPriority || isSavingTask;
@@ -668,6 +768,47 @@ export default function AddTaskInline({
                   )}
                 />
               )}
+            </div>
+          )}
+          {customFieldDefinitions.length > 0 && (
+            <div className="space-y-2 rounded-lg border border-dashed border-foreground/30 p-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-foreground/70">
+                Custom fields
+              </p>
+              <div className="grid gap-2 md:grid-cols-2">
+                {customFieldDefinitions.map((definition) => (
+                  <div key={definition._id} className="space-y-1">
+                    <p className="text-xs font-medium text-foreground/80">
+                      {definition.displayName}
+                      {definition.isRequired ? " *" : ""}
+                    </p>
+                    {definition.fieldType === "boolean" ? (
+                      <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                        <CustomFieldInput
+                          definition={definition}
+                          value={customFieldDrafts[definition._id]}
+                          onChange={(nextValue) =>
+                            onCustomFieldDraftChange(definition._id, nextValue)
+                          }
+                          disabled={isSubmitting}
+                        />
+                        <span className="text-xs text-foreground/70">
+                          Checked
+                        </span>
+                      </label>
+                    ) : (
+                      <CustomFieldInput
+                        definition={definition}
+                        value={customFieldDrafts[definition._id]}
+                        onChange={(nextValue) =>
+                          onCustomFieldDraftChange(definition._id, nextValue)
+                        }
+                        disabled={isSubmitting}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           <CardFooter className="flex flex-col lg:flex-row lg:justify-between gap-2 border-t-2 pt-3">

@@ -13,6 +13,7 @@ import {
   getTodoStoredEisenhowerQuadrant,
   normalizeEisenhowerQuadrantKey,
 } from "../kanban/metadata";
+import ProjectionSwitcher from "../projection/projection-switcher";
 import { useToast } from "../ui/use-toast";
 
 type EisenhowerTodos = Record<EisenhowerQuadrantKey, Array<Doc<"todos">>>;
@@ -226,7 +227,10 @@ export default function Eisenhower() {
     <div className="xl:px-40">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h1 className="text-lg font-semibold md:text-2xl">Eisenhower Matrix</h1>
-        <AddTaskWrapper />
+        <div className="flex items-center gap-2 flex-wrap">
+          <ProjectionSwitcher projectionKind="matrix" />
+          <AddTaskWrapper />
+        </div>
       </div>
       <p className="text-sm text-foreground/70 mt-2 mb-4">
         Tasks are grouped by priority quadrant.
