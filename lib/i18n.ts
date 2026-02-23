@@ -69,6 +69,10 @@ type LocaleMessages = {
     disconnectCalendar: string;
     calendarSidebarHint: string;
     openTodayCalendar: string;
+    dangerZoneTitle: string;
+    dangerZoneDescription: string;
+    deleteAccountButton: string;
+    deleteAccountConfirm: string;
   };
   tasks: {
     taskNamePlaceholder: string;
@@ -307,6 +311,12 @@ const EN_MESSAGES: LocaleMessages = {
     disconnectCalendar: "Disconnect",
     calendarSidebarHint: "When enabled, a calendar sidebar is shown on the Today page.",
     openTodayCalendar: "Open Today page",
+    dangerZoneTitle: "Danger zone",
+    dangerZoneDescription:
+      "Deleting your account permanently removes your projects, tasks, labels, and settings.",
+    deleteAccountButton: "Delete account",
+    deleteAccountConfirm:
+      "Delete your account permanently? This action cannot be undone.",
   },
   tasks: {
     taskNamePlaceholder: "Enter your task name",
@@ -611,6 +621,12 @@ const KO_MESSAGES: LocaleMessages = {
     disconnectCalendar: "연결 해제",
     calendarSidebarHint: "활성화하면 Today 페이지에 캘린더 사이드바가 표시됩니다.",
     openTodayCalendar: "Today 페이지 열기",
+    dangerZoneTitle: "위험 구역",
+    dangerZoneDescription:
+      "회원 탈퇴 시 프로젝트, 태스크, 라벨, 설정이 영구 삭제되며 복구할 수 없습니다.",
+    deleteAccountButton: "회원 탈퇴",
+    deleteAccountConfirm:
+      "정말 회원 탈퇴하시겠어요? 이 작업은 되돌릴 수 없습니다.",
   },
   tasks: {
     taskNamePlaceholder: "태스크명을 입력하세요",

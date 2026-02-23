@@ -19,12 +19,14 @@ import { useFormStatus } from "react-dom";
 
 export default function LoginForm() {
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [locale, setLocale] = useState<AppLocale>(DEFAULT_APP_LOCALE);
   const messages = getLocaleMessages(locale);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setError(params.get("error"));
+    setMessage(params.get("message"));
 
     const storedLocale = window.localStorage.getItem(APP_LOCALE_STORAGE_KEY);
     const resolvedLocale = normalizeAppLocale(storedLocale, DEFAULT_APP_LOCALE);
@@ -129,6 +131,16 @@ export default function LoginForm() {
                 )}
               >
                 {error}
+              </div>
+            )}
+            {!error && message && (
+              <div
+                className={clsx(
+                  "mt-6 rounded-lg border px-4 py-2 text-sm text-center max-w-xl",
+                  "border-emerald-300 bg-emerald-50 text-emerald-700"
+                )}
+              >
+                {message}
               </div>
             )}
             <div className="mt-12">

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
+import { deleteAccountAction } from "@/actions/auth-action";
 import {
   authorizeCalendarAction,
   disconnectCalendarAction,
@@ -24,7 +25,15 @@ import {
   type TaskModuleKey,
 } from "@/lib/types/task-payload";
 
-export default function SettingsModules() {
+type SettingsModulesProps = {
+  statusError?: string;
+  statusMessage?: string;
+};
+
+export default function SettingsModules({
+  statusError,
+  statusMessage,
+}: SettingsModulesProps) {
   const { toast } = useToast();
   const settings = useQuery(api.userFeatureSettings.getMySettings);
   const upsertSettings = useMutation(api.userFeatureSettings.upsertMySettings);
@@ -119,6 +128,17 @@ export default function SettingsModules() {
         {messages.settings.featureDescription}
       </p>
 
+      {statusMessage ? (
+        <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          {statusMessage}
+        </div>
+      ) : null}
+      {statusError ? (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {statusError}
+        </div>
+      ) : null}
+
       <div className="rounded-lg border bg-card p-4 mb-4">
         <p className="font-medium">{messages.settings.languageTitle}</p>
         <p className="text-xs text-foreground/70 mt-1">
@@ -203,6 +223,38 @@ export default function SettingsModules() {
             </div>
           );
         })}
+      </div>
+
+      <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
+        <p className="font-medium text-red-700">
+          {messages.settings.dangerZoneTitle}
+        </p>
+        <p className="mt-1 text-xs text-red-700/90">
+          {messages.settings.dangerZoneDescription}
+        </p>
+        <form
+          action={deleteAccountAction}
+          className="mt-3"
+          onSubmit={(event) => {
+            if (typeof window === "undefined") {
+              return;
+            }
+
+            const shouldDelete = window.confirm(
+              messages.settings.deleteAccountConfirm
+            );
+            if (!shouldDelete) {
+              event.preventDefault();
+            }
+          }}
+        >
+          <button
+            type="submit"
+            className="rounded-md border border-red-500 bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700"
+          >
+            {messages.settings.deleteAccountButton}
+          </button>
+        </form>
       </div>
     </div>
   );
