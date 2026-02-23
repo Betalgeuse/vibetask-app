@@ -104,28 +104,26 @@ export default function MobileNav({
   const navItems = [...localizedPrimaryNavItems, ...optionalItems];
 
   const resolvedNavTitle = useMemo(() => {
-    if (!navTitle.trim()) {
+    const trimmedNavTitle = navTitle.trim();
+    if (!trimmedNavTitle) {
       return navTitle;
     }
 
-    if (navLink === "/loggedin/projects") {
-      return navigationMessages.itemMyProjects;
-    }
-
-    const titleMap: Record<string, string> = {
-      Inbox: navigationMessages.itemInbox,
-      Today: navigationMessages.itemToday,
-      Upcoming: navigationMessages.itemUpcoming,
-      Kanban: navigationMessages.itemKanban,
-      "Eisenhower Matrix": navigationMessages.itemEisenhower,
-      "Filters & Labels": navigationMessages.itemFilters,
-      Settings: navigationMessages.itemSettings,
-      Personas: navigationMessages.itemPersonas,
-      Epics: navigationMessages.itemEpics,
-      "My Projects": navigationMessages.itemMyProjects,
+    const normalizedNavLink = navLink.split("?")[0].replace(/\/$/, "") || "/";
+    const titleMapByLink: Record<string, string> = {
+      "/loggedin": navigationMessages.itemInbox,
+      "/loggedin/today": navigationMessages.itemToday,
+      "/loggedin/upcoming": navigationMessages.itemUpcoming,
+      "/loggedin/kanban": navigationMessages.itemKanban,
+      "/loggedin/eisenhower": navigationMessages.itemEisenhower,
+      "/loggedin/filter-labels": navigationMessages.itemFilters,
+      "/loggedin/settings": navigationMessages.itemSettings,
+      "/loggedin/personas": navigationMessages.itemPersonas,
+      "/loggedin/epics": navigationMessages.itemEpics,
+      "/loggedin/projects": navigationMessages.itemMyProjects,
     };
 
-    return titleMap[navTitle] ?? navTitle;
+    return titleMapByLink[normalizedNavLink] ?? navTitle;
   }, [
     navLink,
     navTitle,
@@ -217,7 +215,12 @@ export default function MobileNav({
           <SearchForm />
         </div>
         <div className="flex h-10 w-10 items-center justify-center lg:h-20 lg:w-16">
-          <Image alt="logo" src="/logo/dunnit.png" width={40} height={40} />
+          <Image
+            alt={navigationMessages.logoAlt}
+            src="/logo/dunnit.png"
+            width={40}
+            height={40}
+          />
         </div>
       </div>
     </header>

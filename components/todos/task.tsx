@@ -6,6 +6,11 @@ import {
   type CustomFieldDraftValue,
   type CustomFieldDraftValues,
 } from "@/components/custom-fields/custom-field-utils";
+import {
+  DEFAULT_APP_LOCALE,
+  getLocaleMessages,
+  normalizeAppLocale,
+} from "@/lib/i18n";
 import { api } from "@/lib/supabase/api";
 import { useAction, useQuery } from "@/lib/supabase/hooks";
 import { Doc } from "@/lib/supabase/types";
@@ -51,6 +56,10 @@ export default function Task({
   canExportToCalendar?: boolean;
 }) {
   const { toast } = useToast();
+  const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
+  const locale = normalizeAppLocale(featureSettings?.locale, DEFAULT_APP_LOCALE);
+  const messages = useMemo(() => getLocaleMessages(locale), [locale]);
+  const taskMessages = messages.tasks;
   const isSubTask = isSubTodo(data);
   const { taskName, description, dueDate } = data;
   const taskRef: TaskEntityRef = useMemo(
@@ -212,24 +221,26 @@ export default function Task({
         | null;
 
       if (!response.ok) {
-        throw new Error(payload?.error?.trim() || "Failed to export task to Calendar.");
+        throw new Error(
+          payload?.error?.trim() || taskMessages.calendarExportFailureDescription
+        );
       }
 
       toast({
-        title: "Added to Google Calendar",
+        title: taskMessages.calendarExportSuccessTitle,
         description:
           payload?.event?.htmlLink?.trim()
-            ? "Calendar event created successfully."
-            : "Task exported as a calendar event.",
+            ? taskMessages.calendarExportSuccessDescriptionWithLink
+            : taskMessages.calendarExportSuccessDescription,
         duration: 3000,
       });
     } catch (error) {
       toast({
-        title: "Could not export task",
+        title: taskMessages.calendarExportFailureTitle,
         description:
           error instanceof Error
             ? error.message
-            : "Failed to export task to Google Calendar.",
+            : taskMessages.calendarExportFailureDescription,
         duration: 3500,
       });
     } finally {
@@ -310,7 +321,10 @@ export default function Task({
                       ))}
                       {customFieldSummary.length > 3 && (
                         <span className="inline-flex items-center rounded-full border border-foreground/20 px-2 py-0.5 text-[10px] text-foreground/70">
-                          +{customFieldSummary.length - 3} more
+                          {taskMessages.customFieldsMoreTemplate.replace(
+                            "{count}",
+                            String(customFieldSummary.length - 3)
+                          )}
                         </span>
                       )}
                     </div>
@@ -326,10 +340,10 @@ export default function Task({
                     }
                   >
                     {isEditingCustomFields
-                      ? "Hide custom fields"
+                      ? taskMessages.customFieldsHide
                       : customFieldSummary.length > 0
-                        ? "Edit custom fields"
-                        : "Add custom fields"}
+                        ? taskMessages.customFieldsEdit
+                        : taskMessages.customFieldsAdd}
                   </Button>
 
                   {isEditingCustomFields && (
@@ -355,8 +369,8 @@ export default function Task({
                               />
                               <span className="text-foreground/70">
                                 {customFieldDrafts[definition._id] === true
-                                  ? "Checked"
-                                  : "Not checked"}
+                                  ? taskMessages.checked
+                                  : taskMessages.notChecked}
                               </span>
                             </label>
                           ) : (
@@ -382,7 +396,7 @@ export default function Task({
                           onClick={onCancelCustomFieldEdit}
                           disabled={isSavingCustomFields}
                         >
-                          Cancel
+                          {taskMessages.cancel}
                         </Button>
                         <Button
                           type="button"
@@ -390,7 +404,9 @@ export default function Task({
                           onClick={onSaveCustomFields}
                           disabled={isSavingCustomFields}
                         >
-                          {isSavingCustomFields ? "Saving..." : "Save fields"}
+                          {isSavingCustomFields
+                            ? taskMessages.customFieldsSaving
+                            : taskMessages.customFieldsSave}
                         </Button>
                       </div>
                     </div>
@@ -410,7 +426,9 @@ export default function Task({
                       void onExportToCalendar();
                     }}
                   >
-                    {isExportingToCalendar ? "Exporting..." : "Add to Calendar"}
+                    {isExportingToCalendar
+                      ? taskMessages.calendarExportLoading
+                      : taskMessages.calendarExportAction}
                   </Button>
                 </div>
               )}

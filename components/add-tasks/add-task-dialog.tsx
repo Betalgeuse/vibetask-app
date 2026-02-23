@@ -88,7 +88,7 @@ export default function AddTaskDialog({ data }: { data: Doc<"todos"> }) {
 
       if (updatedId) {
         toast({
-          title: "✅ Task project updated",
+          title: dialogMessages.projectUpdatedSuccessTitle,
           duration: 2200,
         });
       }
@@ -96,7 +96,7 @@ export default function AddTaskDialog({ data }: { data: Doc<"todos"> }) {
     } catch (error) {
       console.error("Failed to update task project.", error);
       toast({
-        title: "Could not update task project",
+        title: dialogMessages.projectUpdatedFailureTitle,
         duration: 2500,
       });
     } finally {
@@ -120,7 +120,7 @@ export default function AddTaskDialog({ data }: { data: Doc<"todos"> }) {
 
       if (updatedId) {
         toast({
-          title: "✅ Task label updated",
+          title: dialogMessages.labelUpdatedSuccessTitle,
           duration: 2200,
         });
       }
@@ -128,7 +128,7 @@ export default function AddTaskDialog({ data }: { data: Doc<"todos"> }) {
     } catch (error) {
       console.error("Failed to update task label.", error);
       toast({
-        title: "Could not update task label",
+        title: dialogMessages.labelUpdatedFailureTitle,
         duration: 2500,
       });
     } finally {

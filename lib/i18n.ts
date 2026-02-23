@@ -93,6 +93,20 @@ type LocaleMessages = {
     workflowStatusPlaceholder: string;
     customFieldsTitle: string;
     checked: string;
+    notChecked: string;
+    customFieldsMoreTemplate: string;
+    customFieldsHide: string;
+    customFieldsEdit: string;
+    customFieldsAdd: string;
+    customFieldsSaving: string;
+    customFieldsSave: string;
+    calendarExportAction: string;
+    calendarExportLoading: string;
+    calendarExportSuccessTitle: string;
+    calendarExportSuccessDescriptionWithLink: string;
+    calendarExportSuccessDescription: string;
+    calendarExportFailureTitle: string;
+    calendarExportFailureDescription: string;
     cancel: string;
     addTask: string;
     addSubTask: string;
@@ -144,6 +158,7 @@ type LocaleMessages = {
     upgradeTitle: string;
     upgradeDescription: string;
     upgradeCta: string;
+    logoAlt: string;
     signOut: string;
     userFallbackName: string;
     userFallbackAccount: string;
@@ -176,6 +191,10 @@ type LocaleMessages = {
       metadataPriority: string;
       metadataLabel: string;
       deletedSuccessTitle: string;
+      projectUpdatedSuccessTitle: string;
+      projectUpdatedFailureTitle: string;
+      labelUpdatedSuccessTitle: string;
+      labelUpdatedFailureTitle: string;
       deleteCompletedAction: string;
       deleteCompletedLoading: string;
       deleteCompletedSuccessTitle: string;
@@ -337,6 +356,21 @@ const EN_MESSAGES: LocaleMessages = {
     workflowStatusPlaceholder: "Workflow status",
     customFieldsTitle: "Custom fields",
     checked: "Checked",
+    notChecked: "Not checked",
+    customFieldsMoreTemplate: "+{count} more",
+    customFieldsHide: "Hide custom fields",
+    customFieldsEdit: "Edit custom fields",
+    customFieldsAdd: "Add custom fields",
+    customFieldsSaving: "Saving...",
+    customFieldsSave: "Save fields",
+    calendarExportAction: "Add to Calendar",
+    calendarExportLoading: "Exporting...",
+    calendarExportSuccessTitle: "Added to Google Calendar",
+    calendarExportSuccessDescriptionWithLink:
+      "Calendar event created successfully.",
+    calendarExportSuccessDescription: "Task exported as a calendar event.",
+    calendarExportFailureTitle: "Could not export task",
+    calendarExportFailureDescription: "Failed to export task to Google Calendar.",
     cancel: "Cancel",
     addTask: "Add task",
     addSubTask: "Add sub-task",
@@ -445,6 +479,7 @@ const EN_MESSAGES: LocaleMessages = {
     upgradeDescription:
       "Unlock all features and get unlimited access to our support team.",
     upgradeCta: "Upgrade",
+    logoAlt: "Dunnit logo",
     signOut: "Sign out",
     userFallbackName: "User",
     userFallbackAccount: "Account",
@@ -477,6 +512,10 @@ const EN_MESSAGES: LocaleMessages = {
       metadataPriority: "Priority",
       metadataLabel: "Label",
       deletedSuccessTitle: "🗑️ Successfully deleted",
+      projectUpdatedSuccessTitle: "✅ Task project updated",
+      projectUpdatedFailureTitle: "Could not update task project",
+      labelUpdatedSuccessTitle: "✅ Task label updated",
+      labelUpdatedFailureTitle: "Could not update task label",
       deleteCompletedAction: "Delete completed",
       deleteCompletedLoading: "Deleting...",
       deleteCompletedSuccessTitle: "🧹 Completed tasks removed",
@@ -647,6 +686,21 @@ const KO_MESSAGES: LocaleMessages = {
     workflowStatusPlaceholder: "워크플로우 상태",
     customFieldsTitle: "커스텀 필드",
     checked: "선택됨",
+    notChecked: "선택 안 됨",
+    customFieldsMoreTemplate: "+{count}개 더",
+    customFieldsHide: "커스텀 필드 숨기기",
+    customFieldsEdit: "커스텀 필드 수정",
+    customFieldsAdd: "커스텀 필드 추가",
+    customFieldsSaving: "저장 중...",
+    customFieldsSave: "필드 저장",
+    calendarExportAction: "캘린더에 추가",
+    calendarExportLoading: "내보내는 중...",
+    calendarExportSuccessTitle: "Google Calendar에 추가했어요",
+    calendarExportSuccessDescriptionWithLink: "캘린더 이벤트를 생성했어요.",
+    calendarExportSuccessDescription: "작업을 캘린더 이벤트로 내보냈어요.",
+    calendarExportFailureTitle: "작업을 내보내지 못했습니다",
+    calendarExportFailureDescription:
+      "작업을 Google Calendar로 내보내지 못했습니다.",
     cancel: "취소",
     addTask: "태스크 추가",
     addSubTask: "하위 작업 추가",
@@ -754,6 +808,7 @@ const KO_MESSAGES: LocaleMessages = {
     upgradeTitle: "프로로 업그레이드",
     upgradeDescription: "모든 기능과 무제한 지원을 이용해 보세요.",
     upgradeCta: "업그레이드",
+    logoAlt: "더닛 로고",
     signOut: "로그아웃",
     userFallbackName: "사용자",
     userFallbackAccount: "계정",
@@ -786,6 +841,10 @@ const KO_MESSAGES: LocaleMessages = {
       metadataPriority: "우선순위",
       metadataLabel: "라벨",
       deletedSuccessTitle: "🗑️ 삭제했습니다",
+      projectUpdatedSuccessTitle: "✅ 작업 프로젝트를 업데이트했어요",
+      projectUpdatedFailureTitle: "작업 프로젝트를 업데이트하지 못했습니다",
+      labelUpdatedSuccessTitle: "✅ 작업 라벨을 업데이트했어요",
+      labelUpdatedFailureTitle: "작업 라벨을 업데이트하지 못했습니다",
       deleteCompletedAction: "완료 항목 삭제",
       deleteCompletedLoading: "삭제 중...",
       deleteCompletedSuccessTitle: "🧹 완료된 작업을 삭제했어요",
