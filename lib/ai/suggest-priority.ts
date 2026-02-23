@@ -4,16 +4,56 @@ import {
   normalizePriorityQuadrant,
   quadrantToPriority,
 } from "@/lib/ai/priority";
+import { isWorkflowStatus, type TaskModuleFlags } from "@/lib/types/task-payload";
 
 export type SuggestPriorityRequest = {
   taskName: string;
   description?: string;
   dueDate?: number;
   projectId?: string;
+  enabledModules?: Partial<TaskModuleFlags>;
+  labelNames?: string[];
+  personaNames?: string[];
+  epicNames?: string[];
 };
 
 function isPrioritySuggestion(value: unknown): value is Partial<PrioritySuggestion> {
   return typeof value === "object" && value !== null;
+}
+
+function normalizeSuggestedText(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function normalizeSuggestedWorkload(value: unknown): number | undefined {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number.parseInt(value.trim(), 10)
+        : Number.NaN;
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return undefined;
+  }
+
+  return Math.max(1, Math.min(100, Math.round(parsed)));
+}
+
+function normalizeSuggestedWorkflowStatus(
+  value: unknown
+): PrioritySuggestion["suggestedWorkflowStatus"] {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.trim().toUpperCase().replace(/[\s-]+/g, "_");
+  return isWorkflowStatus(normalized) ? normalized : undefined;
 }
 
 export function normalizePrioritySuggestion(
@@ -44,6 +84,14 @@ export function normalizePrioritySuggestion(
     reason: reason || "Priority suggested from task context.",
     source: payload.source === "ai" ? "ai" : "fallback",
     usedFallback: payload.source === "ai" ? false : true,
+    suggestedLabelName: normalizeSuggestedText(payload.suggestedLabelName),
+    suggestedPersonaName: normalizeSuggestedText(payload.suggestedPersonaName),
+    suggestedEpicName: normalizeSuggestedText(payload.suggestedEpicName),
+    suggestedStory: normalizeSuggestedText(payload.suggestedStory),
+    suggestedWorkload: normalizeSuggestedWorkload(payload.suggestedWorkload),
+    suggestedWorkflowStatus: normalizeSuggestedWorkflowStatus(
+      payload.suggestedWorkflowStatus
+    ),
   };
 }
 

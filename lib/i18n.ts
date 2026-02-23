@@ -79,6 +79,7 @@ type LocaleMessages = {
     noPriority: string;
     selectLabel: string;
     noLabel: string;
+    manualLabelOption: string;
     selectProject: string;
     noProject: string;
     none: string;
@@ -171,12 +172,17 @@ type LocaleMessages = {
       metadataPriority: string;
       metadataLabel: string;
       deletedSuccessTitle: string;
+      deleteCompletedAction: string;
+      deleteCompletedLoading: string;
+      deleteCompletedSuccessTitle: string;
+      deleteCompletedFailureDescription: string;
     };
     prioritySuggestion: {
       title: string;
       suggestedQuadrantPrefix: string;
       fallbackDescription: string;
       pickQuadrant: string;
+      suggestedPropertiesTitle: string;
       cancel: string;
       confirm: string;
       confirming: string;
@@ -291,6 +297,11 @@ const EN_MESSAGES: LocaleMessages = {
         description:
           "Prepare for Google Calendar sync behavior (future integration).",
       },
+      aiPriorityConfirmation: {
+        title: "AI Priority Confirmation",
+        description:
+          "Require a confirmation popup before applying AI-suggested Eisenhower priority.",
+      },
     },
     connectCalendar: "Connect Google Calendar",
     disconnectCalendar: "Disconnect",
@@ -306,6 +317,7 @@ const EN_MESSAGES: LocaleMessages = {
     noPriority: "No priority (use AI)",
     selectLabel: "Select a label",
     noLabel: "No label (auto)",
+    manualLabelOption: "Manual input",
     selectProject: "Select a project",
     noProject: "No project (auto)",
     none: "None",
@@ -455,6 +467,11 @@ const EN_MESSAGES: LocaleMessages = {
       metadataPriority: "Priority",
       metadataLabel: "Label",
       deletedSuccessTitle: "🗑️ Successfully deleted",
+      deleteCompletedAction: "Delete completed",
+      deleteCompletedLoading: "Deleting...",
+      deleteCompletedSuccessTitle: "🧹 Completed tasks removed",
+      deleteCompletedFailureDescription:
+        "Could not delete completed tasks. Please try again.",
     },
     prioritySuggestion: {
       title: "Confirm suggested priority",
@@ -462,6 +479,7 @@ const EN_MESSAGES: LocaleMessages = {
       fallbackDescription:
         "AI is unavailable right now. A default quadrant was suggested.",
       pickQuadrant: "Pick a quadrant",
+      suggestedPropertiesTitle: "AI suggestions for enabled properties",
       cancel: "Cancel",
       confirm: "Use selected priority",
       confirming: "Applying...",
@@ -583,6 +601,11 @@ const KO_MESSAGES: LocaleMessages = {
         description:
           "Google Calendar 동기화 동작(향후 통합)을 위한 설정입니다.",
       },
+      aiPriorityConfirmation: {
+        title: "AI 우선순위 확인 팝업",
+        description:
+          "AI가 추천한 아이젠하워 우선순위를 바로 적용하기 전에 확인 팝업을 표시합니다.",
+      },
     },
     connectCalendar: "Google Calendar 연결",
     disconnectCalendar: "연결 해제",
@@ -598,6 +621,7 @@ const KO_MESSAGES: LocaleMessages = {
     noPriority: "우선순위 없음 (AI 추천)",
     selectLabel: "라벨을 선택하세요",
     noLabel: "라벨 없음 (자동)",
+    manualLabelOption: "직접 입력",
     selectProject: "프로젝트를 선택하세요",
     noProject: "프로젝트 없음 (자동)",
     none: "없음",
@@ -746,12 +770,18 @@ const KO_MESSAGES: LocaleMessages = {
       metadataPriority: "우선순위",
       metadataLabel: "라벨",
       deletedSuccessTitle: "🗑️ 삭제했습니다",
+      deleteCompletedAction: "완료 항목 삭제",
+      deleteCompletedLoading: "삭제 중...",
+      deleteCompletedSuccessTitle: "🧹 완료된 작업을 삭제했어요",
+      deleteCompletedFailureDescription:
+        "완료된 작업을 삭제하지 못했습니다. 다시 시도해 주세요.",
     },
     prioritySuggestion: {
       title: "추천 우선순위를 확인하세요",
       suggestedQuadrantPrefix: "추천 사분면:",
       fallbackDescription: "지금은 AI를 사용할 수 없어 기본 사분면을 추천했어요.",
       pickQuadrant: "사분면 선택",
+      suggestedPropertiesTitle: "활성화된 속성 AI 추천",
       cancel: "취소",
       confirm: "선택한 우선순위 사용",
       confirming: "적용 중...",

@@ -1,5 +1,5 @@
 "use client";
-import { Search, SearchIcon } from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Button } from "../ui/button";
@@ -29,11 +29,10 @@ export default function SearchForm() {
   return (
     <Form {...form}>
       <form
-        className="lg:flex lg:items-center justify-end w-full"
+        className="flex w-full items-center justify-end"
         onSubmit={form.handleSubmit(onSubmit)}
       >
-        <div className="relative flex gap-2 items-center w-full">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <div className="flex w-full items-center gap-1.5">
           <FormField
             control={form.control}
             name="searchText"
@@ -45,14 +44,18 @@ export default function SearchForm() {
                     type="search"
                     required
                     placeholder={messages.navigation.searchTasksPlaceholder}
-                    className="w-full appearance-none bg-background pl-8 shadow-none h-10"
+                    className="h-10 w-full appearance-none bg-background shadow-none"
                     {...field}
                   />
                 </FormControl>
               </FormItem>
             )}
           ></FormField>
-          <Button className="hover:bg-orange-600 px-4">
+          <Button
+            type="submit"
+            size="icon"
+            className="h-10 w-9 shrink-0 hover:bg-orange-600"
+          >
             <SearchIcon className="h-4 w-4" />
           </Button>
         </div>

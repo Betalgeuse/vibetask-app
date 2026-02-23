@@ -1,3 +1,5 @@
+import type { WorkflowStatus } from "@/lib/types/task-payload";
+
 export type PriorityQuadrant = "doFirst" | "schedule" | "delegate" | "eliminate";
 
 export type PrioritySuggestionSource = "ai" | "fallback";
@@ -8,6 +10,12 @@ export type PrioritySuggestion = {
   reason: string;
   source: PrioritySuggestionSource;
   usedFallback: boolean;
+  suggestedLabelName?: string;
+  suggestedPersonaName?: string;
+  suggestedEpicName?: string;
+  suggestedStory?: string;
+  suggestedWorkload?: number;
+  suggestedWorkflowStatus?: WorkflowStatus;
 };
 
 export const PRIORITY_QUADRANT_OPTIONS: Array<{

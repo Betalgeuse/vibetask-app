@@ -16,6 +16,7 @@ export const TASK_MODULE_KEYS = [
   "workload",
   "workflowStatus",
   "calendarSync",
+  "aiPriorityConfirmation",
 ] as const;
 
 export type TaskModuleKey = (typeof TASK_MODULE_KEYS)[number];
@@ -28,6 +29,7 @@ export const DEFAULT_TASK_MODULE_FLAGS: TaskModuleFlags = {
   workload: false,
   workflowStatus: false,
   calendarSync: false,
+  aiPriorityConfirmation: true,
 };
 
 export type TaskPayload = {

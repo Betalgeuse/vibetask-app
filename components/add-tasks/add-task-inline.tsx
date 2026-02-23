@@ -74,7 +74,7 @@ const FormSchema = z.object({
   epicId: z.string().optional().default(""),
   personaId: z.string().optional().default(""),
   projectId: z.string().optional().default(""),
-  labelId: z.string().optional().default(""),
+  labelName: z.string().optional().default(""),
 });
 
 type AddTaskFormValues = z.infer<typeof FormSchema>;
@@ -83,6 +83,10 @@ type PendingTaskData = {
   formValues: AddTaskFormValues;
   customFieldDrafts: CustomFieldDraftValues;
 };
+
+function normalizeNameKey(value: string): string {
+  return value.trim().toLowerCase();
+}
 
 export default function AddTaskInline({
   setShowAddTask,
@@ -93,10 +97,14 @@ export default function AddTaskInline({
   parentTask?: Doc<"todos">;
   projectId?: Id<"projects">;
 }) {
-  const projects = useQuery(api.projects.getProjects) ?? [];
-  const labels = useQuery(api.labels.getLabels) ?? [];
-  const epics = useQuery(api.epics.getEpics) ?? [];
-  const personas = useQuery(api.personas.getPersonas) ?? [];
+  const projectsQuery = useQuery(api.projects.getProjects);
+  const labelsQuery = useQuery(api.labels.getLabels);
+  const epicsQuery = useQuery(api.epics.getEpics);
+  const personasQuery = useQuery(api.personas.getPersonas);
+  const projects = useMemo(() => projectsQuery ?? [], [projectsQuery]);
+  const labels = useMemo(() => labelsQuery ?? [], [labelsQuery]);
+  const epics = useMemo(() => epicsQuery ?? [], [epicsQuery]);
+  const personas = useMemo(() => personasQuery ?? [], [personasQuery]);
   const featureSettings = useQuery(api.userFeatureSettings.getMySettings);
   const enabledModules =
     featureSettings?.enabledModules ?? DEFAULT_TASK_MODULE_FLAGS;
@@ -107,6 +115,10 @@ export default function AddTaskInline({
   const defaultProjectId =
     myProjectId || parentTask?.projectId || projects[0]?._id || "";
   const defaultLabelId = parentTask?.labelId || labels[0]?._id || "";
+  const defaultLabelName =
+    parentTask?.labelId && labels.length > 0
+      ? labels.find((label) => label._id === parentTask.labelId)?.name ?? ""
+      : "";
   const defaultEpicId = parentTask?.epicId || epics[0]?._id || "";
   const defaultPersonaId = parentTask?.personaId || personas[0]?._id || "";
   const priority = parentTask?.priority?.toString() || "";
@@ -130,6 +142,7 @@ export default function AddTaskInline({
   );
 
   const createTodoEmbeddings = useAction(api.todos.createTodoAndEmbeddings);
+  const createALabel = useAction(api.labels.createALabel);
   const upsertCustomFieldValues = useAction(api.customFields.upsertCustomFieldValues);
 
   const defaultValues: AddTaskFormValues = {
@@ -143,7 +156,7 @@ export default function AddTaskInline({
     personaId: defaultPersonaId,
     dueDate: undefined,
     projectId: defaultProjectId,
-    labelId: defaultLabelId,
+    labelName: defaultLabelName,
   };
 
   const form = useForm<AddTaskFormValues>({
@@ -170,11 +183,11 @@ export default function AddTaskInline({
   }, [defaultProjectId, form]);
 
   useEffect(() => {
-    const selectedLabelId = form.getValues("labelId");
-    if (!selectedLabelId && defaultLabelId) {
-      form.setValue("labelId", defaultLabelId);
+    const selectedLabelName = form.getValues("labelName");
+    if (!selectedLabelName && defaultLabelName) {
+      form.setValue("labelName", defaultLabelName);
     }
-  }, [defaultLabelId, form]);
+  }, [defaultLabelName, form]);
 
   useEffect(() => {
     if (!enabledModules.epic) {
@@ -221,6 +234,114 @@ export default function AddTaskInline({
     });
   }, [customFieldDefinitions]);
 
+  const labelsByName = useMemo(
+    () =>
+      new Map(
+        labels.map((label) => [normalizeNameKey(label.name), label] as const)
+      ),
+    [labels]
+  );
+
+  const personasByName = useMemo(
+    () =>
+      new Map(
+        personas.map((persona) => [normalizeNameKey(persona.name), persona] as const)
+      ),
+    [personas]
+  );
+
+  const epicsByName = useMemo(
+    () =>
+      new Map(epics.map((epic) => [normalizeNameKey(epic.name), epic] as const)),
+    [epics]
+  );
+
+  async function resolveLabelIdFromInput(
+    labelName: string | undefined
+  ): Promise<Id<"labels"> | undefined> {
+    const trimmedLabelName = labelName?.trim() ?? "";
+
+    if (!trimmedLabelName) {
+      return (defaultLabelId || labels[0]?._id || undefined) as
+        | Id<"labels">
+        | undefined;
+    }
+
+    const existingLabel = labelsByName.get(normalizeNameKey(trimmedLabelName));
+    if (existingLabel) {
+      return existingLabel._id as Id<"labels">;
+    }
+
+    const createdLabelId = await createALabel({ name: trimmedLabelName });
+    if (!createdLabelId) {
+      throw new Error(taskMessages.failedToCreateTaskDescription);
+    }
+
+    return createdLabelId as Id<"labels">;
+  }
+
+  function applyAiSuggestionToFormValues(
+    data: AddTaskFormValues,
+    suggestion: ReturnType<typeof createFallbackPrioritySuggestion>
+  ): AddTaskFormValues {
+    const nextValues: AddTaskFormValues = { ...data };
+
+    if (!nextValues.labelName?.trim() && suggestion.suggestedLabelName?.trim()) {
+      nextValues.labelName = suggestion.suggestedLabelName.trim();
+    }
+
+    if (
+      enabledModules.persona &&
+      !nextValues.personaId?.trim() &&
+      suggestion.suggestedPersonaName?.trim()
+    ) {
+      const persona = personasByName.get(
+        normalizeNameKey(suggestion.suggestedPersonaName)
+      );
+      if (persona) {
+        nextValues.personaId = persona._id;
+      }
+    }
+
+    if (
+      enabledModules.epic &&
+      !nextValues.epicId?.trim() &&
+      suggestion.suggestedEpicName?.trim()
+    ) {
+      const epic = epicsByName.get(normalizeNameKey(suggestion.suggestedEpicName));
+      if (epic) {
+        nextValues.epicId = epic._id;
+      }
+    }
+
+    if (
+      enabledModules.story &&
+      !nextValues.story?.trim() &&
+      suggestion.suggestedStory?.trim()
+    ) {
+      nextValues.story = suggestion.suggestedStory.trim();
+    }
+
+    if (
+      enabledModules.workload &&
+      !nextValues.workload?.trim() &&
+      typeof suggestion.suggestedWorkload === "number" &&
+      Number.isFinite(suggestion.suggestedWorkload)
+    ) {
+      nextValues.workload = `${suggestion.suggestedWorkload}`;
+    }
+
+    if (
+      enabledModules.workflowStatus &&
+      !nextValues.workflowStatus?.trim() &&
+      suggestion.suggestedWorkflowStatus
+    ) {
+      nextValues.workflowStatus = suggestion.suggestedWorkflowStatus;
+    }
+
+    return nextValues;
+  }
+
   async function createTaskWithPriority(
     data: AddTaskFormValues,
     resolvedPriority: PriorityQuadrant,
@@ -232,7 +353,7 @@ export default function AddTaskInline({
       story,
       dueDate,
       projectId,
-      labelId,
+      labelName,
       epicId,
       personaId,
       workload,
@@ -241,8 +362,7 @@ export default function AddTaskInline({
 
     const resolvedProjectId =
       projectId?.trim() || defaultProjectId || projects[0]?._id || undefined;
-    const resolvedLabelId =
-      labelId?.trim() || defaultLabelId || labels[0]?._id || undefined;
+    const resolvedLabelId = await resolveLabelIdFromInput(labelName);
     const resolvedDueDate =
       dueDate instanceof Date && !Number.isNaN(dueDate.getTime())
         ? moment(dueDate).valueOf()
@@ -410,6 +530,7 @@ export default function AddTaskInline({
     setIsResolvingPriority(true);
 
     try {
+      const customFieldDraftSnapshot = { ...customFieldDrafts };
       const resolvedProjectId =
         data.projectId?.trim() || defaultProjectId || projects[0]?._id || undefined;
       const suggestion = await suggestPriorityForTask({
@@ -420,14 +541,13 @@ export default function AddTaskInline({
             ? moment(data.dueDate).valueOf()
             : undefined,
         projectId: resolvedProjectId,
+        enabledModules,
+        labelNames: labels.map((label) => label.name),
+        personaNames: personas.map((persona) => persona.name),
+        epicNames: epics.map((epic) => epic.name),
       });
 
-      setPendingTaskData({
-        formValues: data,
-        customFieldDrafts: { ...customFieldDrafts },
-      });
-      setSuggestedPriority(suggestion);
-      setPrioritySuggestionOpen(true);
+      const nextValues = applyAiSuggestionToFormValues(data, suggestion);
 
       if (suggestion.usedFallback) {
         toast({
@@ -436,16 +556,43 @@ export default function AddTaskInline({
           duration: 3000,
         });
       }
+
+      if (enabledModules.aiPriorityConfirmation) {
+        setPendingTaskData({
+          formValues: nextValues,
+          customFieldDrafts: customFieldDraftSnapshot,
+        });
+        setSuggestedPriority(suggestion);
+        setPrioritySuggestionOpen(true);
+        return;
+      }
+
+      await createTaskWithPriority(
+        nextValues,
+        suggestion.quadrant,
+        customFieldDraftSnapshot
+      );
     } catch (_error) {
       const fallback = createFallbackPrioritySuggestion(
         taskMessages.fallbackPriorityDescription
       );
-      setPendingTaskData({
-        formValues: data,
-        customFieldDrafts: { ...customFieldDrafts },
-      });
-      setSuggestedPriority(fallback);
-      setPrioritySuggestionOpen(true);
+      const customFieldDraftSnapshot = { ...customFieldDrafts };
+      const nextValues = applyAiSuggestionToFormValues(data, fallback);
+
+      if (enabledModules.aiPriorityConfirmation) {
+        setPendingTaskData({
+          formValues: nextValues,
+          customFieldDrafts: customFieldDraftSnapshot,
+        });
+        setSuggestedPriority(fallback);
+        setPrioritySuggestionOpen(true);
+      } else {
+        await createTaskWithPriority(
+          nextValues,
+          fallback.quadrant,
+          customFieldDraftSnapshot
+        );
+      }
     } finally {
       setIsResolvingPriority(false);
     }
@@ -468,6 +615,7 @@ export default function AddTaskInline({
       <PrioritySuggestionDialog
         open={prioritySuggestionOpen}
         suggestion={suggestedPriority}
+        enabledModules={enabledModules}
         isSubmitting={isSavingTask}
         onOpenChange={(open) => {
           setPrioritySuggestionOpen(open);
@@ -612,29 +760,65 @@ export default function AddTaskInline({
             />
             <FormField
               control={form.control}
-              name="labelId"
+              name="labelName"
               render={({ field }) => (
                 <FormItem className="w-full">
-                  <Select
-                    onValueChange={(value) =>
-                      field.onChange(value === "none" ? "" : value)
-                    }
-                    value={field.value?.trim() ? field.value : "none"}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder={taskMessages.selectLabel} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">{taskMessages.noLabel}</SelectItem>
-                      {labels.map((label: Doc<"labels">, idx: number) => (
-                        <SelectItem key={idx} value={label._id}>
-                          {label?.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <div className="flex gap-2">
+                      <Input
+                        type="text"
+                        placeholder="라벨 (ex. 독서, AI, 네트워킹)"
+                        value={field.value ?? ""}
+                        onChange={field.onChange}
+                        className="min-w-0 flex-1"
+                      />
+                      <Select
+                        value={
+                          (() => {
+                            const labelValue = field.value?.trim();
+                            if (!labelValue) {
+                              return "none";
+                            }
+
+                            const matchedLabel = labelsByName.get(
+                              normalizeNameKey(labelValue)
+                            );
+                            return matchedLabel?._id ?? "__manual__";
+                          })()
+                        }
+                        onValueChange={(value) => {
+                          if (value === "__manual__") {
+                            return;
+                          }
+
+                          if (value === "none") {
+                            field.onChange("");
+                            return;
+                          }
+
+                          const selectedLabel = labels.find(
+                            (label) => label._id === value
+                          );
+                          field.onChange(selectedLabel?.name ?? "");
+                        }}
+                      >
+                        <SelectTrigger className="w-[132px] shrink-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__manual__">
+                            {taskMessages.manualLabelOption}
+                          </SelectItem>
+                          <SelectItem value="none">{taskMessages.noLabel}</SelectItem>
+                          {labels.map((label: Doc<"labels">) => (
+                            <SelectItem key={label._id} value={label._id}>
+                              {label.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </FormControl>
 
                   <FormMessage />
                 </FormItem>

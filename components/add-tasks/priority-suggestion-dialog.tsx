@@ -30,11 +30,13 @@ import {
   getLocaleMessages,
   normalizeAppLocale,
 } from "@/lib/i18n";
+import { type TaskModuleFlags } from "@/lib/types/task-payload";
 
 type PrioritySuggestionDialogProps = {
   open: boolean;
   isSubmitting?: boolean;
   suggestion: PrioritySuggestion | null;
+  enabledModules: TaskModuleFlags;
   onOpenChange: (open: boolean) => void;
   onConfirm: (quadrant: PriorityQuadrant) => void;
 };
@@ -43,6 +45,7 @@ export default function PrioritySuggestionDialog({
   open,
   isSubmitting = false,
   suggestion,
+  enabledModules,
   onOpenChange,
   onConfirm,
 }: PrioritySuggestionDialogProps) {
@@ -53,6 +56,65 @@ export default function PrioritySuggestionDialog({
   const messages = useMemo(() => getLocaleMessages(locale), [locale]);
   const dialogMessages = messages.dialogs.prioritySuggestion;
   const priorityQuadrantMessages = messages.tasks.priorityQuadrants;
+  const moduleLabels = messages.settings.modules;
+  const workflowStatusLabels = messages.tasks.workflowStatuses;
+  const taskDetailMessages = messages.dialogs.taskDetails;
+
+  const suggestedProperties: Array<{ key: string; label: string; value: string }> = [];
+
+  if (suggestion?.suggestedLabelName) {
+    suggestedProperties.push({
+      key: "label",
+      label: taskDetailMessages.metadataLabel,
+      value: suggestion.suggestedLabelName,
+    });
+  }
+
+  if (enabledModules.persona && suggestion?.suggestedPersonaName) {
+    suggestedProperties.push({
+      key: "persona",
+      label: moduleLabels.persona.title,
+      value: suggestion.suggestedPersonaName,
+    });
+  }
+
+  if (enabledModules.epic && suggestion?.suggestedEpicName) {
+    suggestedProperties.push({
+      key: "epic",
+      label: moduleLabels.epic.title,
+      value: suggestion.suggestedEpicName,
+    });
+  }
+
+  if (enabledModules.story && suggestion?.suggestedStory) {
+    suggestedProperties.push({
+      key: "story",
+      label: moduleLabels.story.title,
+      value: suggestion.suggestedStory,
+    });
+  }
+
+  if (
+    enabledModules.workload &&
+    typeof suggestion?.suggestedWorkload === "number" &&
+    Number.isFinite(suggestion.suggestedWorkload)
+  ) {
+    suggestedProperties.push({
+      key: "workload",
+      label: moduleLabels.workload.title,
+      value: `${suggestion.suggestedWorkload}`,
+    });
+  }
+
+  if (enabledModules.workflowStatus && suggestion?.suggestedWorkflowStatus) {
+    suggestedProperties.push({
+      key: "workflowStatus",
+      label: moduleLabels.workflowStatus.title,
+      value:
+        workflowStatusLabels[suggestion.suggestedWorkflowStatus] ??
+        suggestion.suggestedWorkflowStatus,
+    });
+  }
 
   useEffect(() => {
     if (suggestion?.quadrant) {
@@ -81,6 +143,25 @@ export default function PrioritySuggestionDialog({
             <p className="text-xs text-foreground/60">
               {dialogMessages.fallbackDescription}
             </p>
+          )}
+
+          {suggestedProperties.length > 0 && (
+            <div className="space-y-2 rounded-md border border-dashed p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-foreground/70">
+                {dialogMessages.suggestedPropertiesTitle}
+              </p>
+              <ul className="space-y-1.5">
+                {suggestedProperties.map((item) => (
+                  <li
+                    key={item.key}
+                    className="grid grid-cols-[110px_1fr] gap-2 text-xs"
+                  >
+                    <span className="font-medium text-foreground/70">{item.label}</span>
+                    <span className="break-words text-foreground/90">{item.value}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
           <div className="space-y-2">

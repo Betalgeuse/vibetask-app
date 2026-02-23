@@ -909,14 +909,26 @@ async function ensureDefaultProjectAndLabel() {
   }
 
   ensureDefaultsInFlight = (async () => {
-    const { data: existingProjects, error: projectsError } = await supabase
+    const { data: existingSystemProjects, error: systemProjectsError } = await supabase
       .from("projects")
       .select("id")
-      .eq("user_id", user.id)
+      .eq("type", "system")
       .limit(1);
-    if (projectsError) throw projectsError;
+    if (systemProjectsError) throw systemProjectsError;
 
-    if (!existingProjects || existingProjects.length === 0) {
+    let hasAccessibleProject = (existingSystemProjects?.length ?? 0) > 0;
+
+    if (!hasAccessibleProject) {
+      const { data: existingUserProjects, error: userProjectsError } = await supabase
+        .from("projects")
+        .select("id")
+        .eq("user_id", user.id)
+        .limit(1);
+      if (userProjectsError) throw userProjectsError;
+      hasAccessibleProject = (existingUserProjects?.length ?? 0) > 0;
+    }
+
+    if (!hasAccessibleProject) {
       const { error: insertProjectError } = await supabase.from("projects").insert({
         user_id: user.id,
         name: "Inbox",
@@ -1231,6 +1243,33 @@ export const api = {
         })
         .select("id")
         .single();
+      if (error) throw error;
+      return data?.id ?? null;
+    },
+
+    async updateAProject({
+      projectId,
+      name,
+    }: {
+      projectId: Id<"projects">;
+      name: string;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        return null;
+      }
+
+      const { data, error } = await supabase
+        .from("projects")
+        .update({ name: trimmedName })
+        .eq("id", projectId)
+        .eq("user_id", user.id)
+        .eq("type", "user")
+        .select("id")
+        .maybeSingle();
       if (error) throw error;
       return data?.id ?? null;
     },
@@ -2783,6 +2822,72 @@ export const api = {
           priority_quadrant: normalizedPriority,
           priority: QUADRANT_TO_LEGACY_PRIORITY[normalizedPriority],
         })
+        .eq("id", taskId)
+        .eq("user_id", user.id)
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      return data?.id ?? null;
+    },
+
+    async updateATodoProjectAndLabel({
+      taskId,
+      projectId,
+      labelId,
+    }: {
+      taskId: Id<"todos">;
+      projectId?: Id<"projects">;
+      labelId?: Id<"labels">;
+    }) {
+      const { supabase, user } = await getSupabaseAndUser();
+      if (!user) return null;
+
+      const updates: Record<string, string> = {};
+
+      if (typeof projectId === "string" && projectId.trim()) {
+        const selectedProjectId = projectId.trim();
+        const { data: project, error: projectError } = await supabase
+          .from("projects")
+          .select("id,user_id,type")
+          .eq("id", selectedProjectId)
+          .maybeSingle();
+        if (projectError) throw projectError;
+
+        const projectRow = project as ProjectRow | null;
+        if (
+          !projectRow ||
+          (projectRow.type !== "system" && projectRow.user_id !== user.id)
+        ) {
+          return null;
+        }
+
+        updates.project_id = projectRow.id;
+      }
+
+      if (typeof labelId === "string" && labelId.trim()) {
+        const selectedLabelId = labelId.trim();
+        const { data: label, error: labelError } = await supabase
+          .from("labels")
+          .select("id,user_id,type")
+          .eq("id", selectedLabelId)
+          .maybeSingle();
+        if (labelError) throw labelError;
+
+        const labelRow = label as LabelRow | null;
+        if (!labelRow || (labelRow.type !== "system" && labelRow.user_id !== user.id)) {
+          return null;
+        }
+
+        updates.label_id = labelRow.id;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return taskId;
+      }
+
+      const { data, error } = await supabase
+        .from("todos")
+        .update(updates)
         .eq("id", taskId)
         .eq("user_id", user.id)
         .select("id")

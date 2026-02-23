@@ -18,6 +18,7 @@ import {
 } from "@/lib/i18n";
 import { useMemo } from "react";
 import { usePathname } from "next/navigation";
+import AddProjectDialog from "../projects/add-project-dialog";
 
 export default function MobileNav({
   navTitle = "",
@@ -151,28 +152,34 @@ export default function MobileNav({
             </span>
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="flex h-full flex-col overflow-hidden">
-          <nav className="grid min-h-0 flex-1 gap-2 overflow-y-auto pr-2 text-lg font-medium">
+        <SheetContent
+          side="left"
+          className="flex h-full flex-col overflow-hidden px-4 sm:px-6"
+        >
+          <nav className="flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto pr-1 text-lg font-medium">
             <UserProfile />
 
             {navItems.map(({ name, icon, link }, idx) => (
               <Link
                 key={idx}
                 href={link}
-                className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 hover:text-foreground"
+                className="flex min-w-0 items-center gap-4 rounded-xl px-3 py-2 text-foreground/80 hover:text-foreground"
               >
                 {icon}
                 {name}
               </Link>
             ))}
 
-            <div className="flex items-center mt-6 mb-2">
-              <p className="flex flex-1 text-base">
+            <div className="mb-2 mt-6 flex items-center justify-between gap-2">
+              <p className="flex-1 text-base">
                 {navigationMessages.itemMyProjects}
               </p>
+              <div className="flex h-8 w-8 items-center justify-center rounded-md border border-border/60 bg-background/60 text-foreground">
+                <AddProjectDialog />
+              </div>
             </div>
 
-            <div className="space-y-1 pb-3">
+            <div className="min-w-0 space-y-1 overflow-x-hidden pb-3">
               {projectList.map((project) => {
                 const projectLink = `/loggedin/projects/${project._id}`;
                 const isActive = pathname === projectLink;
@@ -181,14 +188,16 @@ export default function MobileNav({
                   <Link
                     key={project._id}
                     href={projectLink}
-                    className={`mx-[-0.65rem] flex items-center gap-3 rounded-xl px-3 py-2 text-sm ${
+                    className={`flex min-w-0 items-center gap-3 rounded-xl px-3 py-2 text-sm ${
                       isActive
                         ? "bg-primary/10 text-primary"
                         : "text-foreground/80 hover:text-foreground"
                     }`}
                   >
                     <Hash className="h-4 w-4" />
-                    <span className="truncate">{project.name}</span>
+                    <span className="block min-w-0 flex-1 truncate">
+                      {project.name}
+                    </span>
                   </Link>
                 );
               })}
@@ -196,19 +205,19 @@ export default function MobileNav({
           </nav>
         </SheetContent>
       </Sheet>
-      <div className="flex items-center md:justify-between w-full gap-1 md:gap-2 py-2">
-        <div className="lg:flex-1">
+      <div className="flex w-full items-center gap-2 py-2">
+        <div className="min-w-0">
           <Link href={navLink}>
-            <p className="text-sm font-semibold text-foreground/70 w-24">
+            <p className="max-w-[6.5rem] truncate text-sm font-semibold text-foreground/70 sm:max-w-[8rem]">
               {resolvedNavTitle}
             </p>
           </Link>
         </div>
-        <div className="place-content-center w-full flex-1">
+        <div className="min-w-0 flex-1">
           <SearchForm />
         </div>
-        <div className="place-content-center w-12 h-12 lg:w-16 lg:h-20">
-          <Image alt="logo" src="/logo/dunnit.png" width={48} height={48} />
+        <div className="flex h-10 w-10 items-center justify-center lg:h-20 lg:w-16">
+          <Image alt="logo" src="/logo/dunnit.png" width={40} height={40} />
         </div>
       </div>
     </header>
