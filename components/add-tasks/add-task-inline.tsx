@@ -826,19 +826,21 @@ export default function AddTaskInline({
             />
           </div>
           <FormField
-            control={form.control}
-            name="projectId"
-            render={({ field }) => (
-              <FormItem>
-                <Select
-                  onValueChange={(value) =>
-                    field.onChange(value === "none" ? "" : value)
-                  }
-                  value={field.value?.trim() ? field.value : "none"}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder={taskMessages.selectProject} />
+              control={form.control}
+              name="projectId"
+              render={({ field }) => (
+                <FormItem>
+                  <Select
+                    onValueChange={(value) =>
+                      field.onChange(
+                        value === "none" ? defaultProjectId || "" : value
+                      )
+                    }
+                    value={field.value?.trim() || defaultProjectId || "none"}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder={taskMessages.selectProject} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
