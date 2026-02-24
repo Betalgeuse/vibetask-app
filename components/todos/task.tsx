@@ -16,7 +16,7 @@ import { useAction, useQuery } from "@/lib/supabase/hooks";
 import { Doc } from "@/lib/supabase/types";
 import { type TaskEntityRef } from "@/lib/types/task-projection";
 import clsx from "clsx";
-import { Calendar, GitBranch, Tag } from "lucide-react";
+import { Calendar, GitBranch, Tag, Trash2 } from "lucide-react";
 import moment from "moment";
 import { useEffect, useMemo, useState } from "react";
 import AddTaskDialog from "../add-tasks/add-task-dialog";
@@ -92,6 +92,9 @@ export default function Task({
   );
   const upsertCustomFieldValues = useAction(api.customFields.upsertCustomFieldValues);
 
+  const deleteTodo = useAction(api.todos.deleteATodo);
+  const deleteSubTodo = useAction(api.subTodos.deleteASubTodo);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isEditingCustomFields, setIsEditingCustomFields] = useState(false);
   const [isSavingCustomFields, setIsSavingCustomFields] = useState(false);
   const [isExportingToCalendar, setIsExportingToCalendar] = useState(false);
@@ -188,6 +191,22 @@ export default function Task({
       console.error("Failed to save custom field values.", error);
     } finally {
       setIsSavingCustomFields(false);
+    }
+  }
+
+  async function onDelete() {
+    if (isDeleting) return;
+    setIsDeleting(true);
+    try {
+      if (isSubTask) {
+        await deleteSubTodo({ taskId: data._id });
+      } else {
+        await deleteTodo({ taskId: data._id });
+      }
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -435,6 +454,14 @@ export default function Task({
             </div>
           </div>
           {!isSubTask && <AddTaskDialog data={data} />}
+          <button
+            onClick={() => { void onDelete(); }}
+            disabled={isDeleting}
+            className="flex-shrink-0 p-1 rounded text-foreground/30 hover:text-destructive transition-colors disabled:opacity-50"
+            aria-label="Delete task"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       </Dialog>
     </div>
