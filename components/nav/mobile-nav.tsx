@@ -215,12 +215,14 @@ export default function MobileNav({
           <SearchForm />
         </div>
         <div className="flex h-10 w-10 items-center justify-center lg:h-20 lg:w-16">
-          <Image
-            alt={navigationMessages.logoAlt}
-            src="/logo/dunnit.png"
-            width={40}
-            height={40}
-          />
+          <a href="https://dunnit.luerre.ai/" target="_blank" rel="noopener noreferrer">
+            <Image
+              alt={navigationMessages.logoAlt}
+              src="/logo/dunnit.png"
+              width={40}
+              height={40}
+            />
+          </a>
         </div>
       </div>
     </header>
