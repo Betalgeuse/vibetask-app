@@ -139,6 +139,7 @@ export default function Kanban() {
         duration: 2000,
       });
     } catch (error) {
+      console.error("Failed to move task:", error);
       toast({
         title: "Failed to move task",
         description: "Please try again",

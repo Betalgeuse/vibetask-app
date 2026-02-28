@@ -307,7 +307,8 @@ export default function Eisenhower() {
     if (!over) return;
 
     const taskId = active.id as string;
-    const newQuadrant = over.id as EisenhowerQuadrantKey;
+    const newQuadrant = normalizeEisenhowerQuadrantKey(over.id);
+    if (!newQuadrant) return;
 
     const allTasks = Object.values(quadrants).flat();
     const task = allTasks.find((t) => t._id === taskId);
@@ -319,14 +320,15 @@ export default function Eisenhower() {
     try {
       await updateTodoPriority({ taskId, priority: newQuadrant });
       toast({
-        title: "Task moved",
+        title: eisenhowerMessages.taskMoved,
         description: eisenhowerMessages.quadrants[newQuadrant].title,
         duration: 2000,
       });
-    } catch {
+    } catch (error) {
+      console.error("Failed to move task:", error);
       toast({
-        title: "Failed to move task",
-        description: "Please try again",
+        title: eisenhowerMessages.moveFailedTitle,
+        description: eisenhowerMessages.moveFailedDescription,
         duration: 3000,
       });
     }

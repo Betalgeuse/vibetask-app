@@ -1,5 +1,6 @@
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
+import type { CheckedState } from "@radix-ui/react-checkbox";
 import { Doc } from "@/lib/supabase/types";
 import Task from "./task";
 import { cn } from "@/lib/utils";
@@ -14,7 +15,7 @@ export default function DraggableTask({
   data: Doc<"todos">;
   label?: Doc<"labels"> | null;
   isCompleted: boolean;
-  handleOnChange: any;
+  handleOnChange: (checked: CheckedState) => void;
   canExportToCalendar?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({

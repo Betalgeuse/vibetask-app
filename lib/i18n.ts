@@ -129,6 +129,9 @@ type LocaleMessages = {
     noTasks: string;
     completedTitle: string;
     completedDescription: string;
+    taskMoved: string;
+    moveFailedTitle: string;
+    moveFailedDescription: string;
     quadrants: PriorityQuadrantCopy;
   };
   kanban: {
@@ -419,6 +422,9 @@ const EN_MESSAGES: LocaleMessages = {
     noTasks: "No tasks",
     completedTitle: "✅ Task completed",
     completedDescription: "You're a rockstar",
+    taskMoved: "Task moved",
+    moveFailedTitle: "Failed to move task",
+    moveFailedDescription: "Please try again",
     quadrants: {
       doFirst: {
         title: "Do First",
@@ -749,6 +755,9 @@ const KO_MESSAGES: LocaleMessages = {
     noTasks: "태스크가 없습니다",
     completedTitle: "✅ 태스크 완료",
     completedDescription: "아주 잘하고 있어요",
+    taskMoved: "태스크 이동 완료",
+    moveFailedTitle: "태스크 이동 실패",
+    moveFailedDescription: "다시 시도해주세요",
     quadrants: {
       doFirst: {
         title: "먼저 하기",
