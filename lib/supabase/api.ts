@@ -2780,16 +2780,19 @@ export const api = {
     async updateTodoStatus({
       taskId,
       status,
+      workflowStatus,
     }: {
       taskId: Id<"todos">;
       status: TodoStatus;
+      workflowStatus?: WorkflowStatus;
     }) {
       const { supabase, user } = await getSupabaseAndUser();
       if (!user) return null;
 
       const normalizedStatus = normalizeTodoStatus(status);
-      const normalizedWorkflowStatus =
-        normalizedStatus === "DONE" ? "DONE" : "BACKLOG";
+      const normalizedWorkflowStatus = workflowStatus
+        ? normalizeWorkflowStatus(workflowStatus)
+        : normalizedStatus === "DONE" ? "DONE" : "BACKLOG";
       const { data, error } = await supabase
         .from("todos")
         .update({

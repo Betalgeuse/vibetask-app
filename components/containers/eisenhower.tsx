@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { useQuery, useMutation } from "@/lib/supabase/hooks";
+import { useMemo, useState } from "react";
+import { useQuery, useMutation, useAction } from "@/lib/supabase/hooks";
 import { api } from "@/lib/supabase/api";
 import { Doc } from "@/lib/supabase/types";
 import {
@@ -20,6 +20,20 @@ import {
 } from "../kanban/metadata";
 import ProjectionSwitcher from "../projection/projection-switcher";
 import { useToast } from "../ui/use-toast";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  closestCenter,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
+import { cn } from "@/lib/utils";
 
 type EisenhowerTodos = Record<EisenhowerQuadrantKey, Array<Doc<"todos">>>;
 
@@ -64,13 +78,11 @@ interface TaskCardProps {
 
 function TaskCard({ task, label, onCheck }: TaskCardProps) {
   return (
-    <div
-      className="flex items-center space-x-2 border-b-2 p-2 border-gray-100 animate-in fade-in"
-    >
+    <div className="flex items-center space-x-2 border-b-2 p-2 border-gray-100 animate-in fade-in">
       <div className="flex gap-2 w-full">
         <input
           type="checkbox"
-          className="w-5 h-5 rounded-xl"
+          className="w-5 h-5 rounded-xl flex-shrink-0"
           checked={task.isCompleted}
           onChange={onCheck}
           onClick={(e) => e.stopPropagation()}
@@ -101,6 +113,35 @@ function TaskCard({ task, label, onCheck }: TaskCardProps) {
   );
 }
 
+function DraggableTaskCard({ task, label, onCheck }: TaskCardProps) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: task._id,
+    data: { taskId: task._id },
+  });
+
+  const style = transform
+    ? {
+        transform: CSS.Translate.toString(transform),
+        zIndex: isDragging ? 50 : undefined,
+      }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className={cn(
+        "cursor-grab active:cursor-grabbing",
+        isDragging && "opacity-50"
+      )}
+    >
+      <TaskCard task={task} label={label} onCheck={onCheck} />
+    </div>
+  );
+}
+
 interface DroppableQuadrantProps {
   quadrantKey: EisenhowerQuadrantKey;
   title: string;
@@ -120,8 +161,16 @@ function DroppableQuadrant({
   labelsById,
   onCheckTask,
 }: DroppableQuadrantProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: quadrantKey });
+
   return (
-    <section className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
+    <section
+      ref={setNodeRef}
+      className={cn(
+        "rounded-lg border bg-card p-4 text-card-foreground shadow-sm min-h-[160px] transition-colors",
+        isOver && "bg-primary/5 border-primary"
+      )}
+    >
       <div className="flex items-center justify-between border-b border-gray-100 pb-2">
         <div>
           <h2 className="text-base font-semibold">{title}</h2>
@@ -132,10 +181,10 @@ function DroppableQuadrant({
         </span>
       </div>
 
-      <div className="pt-2 min-h-[100px]">
+      <div className="pt-2">
         {items.length > 0 ? (
           items.map((task) => (
-            <TaskCard
+            <DraggableTaskCard
               key={task._id}
               task={task}
               label={labelsById.get(task.labelId) ?? null}
@@ -155,6 +204,7 @@ function DroppableQuadrant({
 
 export default function Eisenhower() {
   const { toast } = useToast();
+  const [activeTask, setActiveTask] = useState<Doc<"todos"> | null>(null);
 
   const settings = useQuery(api.userFeatureSettings.getMySettings);
   const inCompleteTodosQuery = useQuery(api.todos.inCompleteTodos);
@@ -166,6 +216,15 @@ export default function Eisenhower() {
 
   const checkATodo = useMutation(api.todos.checkATodo);
   const unCheckATodo = useMutation(api.todos.unCheckATodo);
+  const updateTodoPriority = useAction(api.todos.updateTodoPriority);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
 
   const legacyQuadrants = useMemo(
     () => normalizeQuadrantBuckets(quadrantsQuery),
@@ -234,44 +293,99 @@ export default function Eisenhower() {
     }
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const taskId = event.active.id as string;
+    const allTasks = Object.values(quadrants).flat();
+    const task = allTasks.find((t) => t._id === taskId);
+    if (task) setActiveTask(task);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveTask(null);
+
+    if (!over) return;
+
+    const taskId = active.id as string;
+    const newQuadrant = over.id as EisenhowerQuadrantKey;
+
+    const allTasks = Object.values(quadrants).flat();
+    const task = allTasks.find((t) => t._id === taskId);
+    if (!task) return;
+
+    const currentQuadrant = getTodoStoredEisenhowerQuadrant(task) ?? "doFirst";
+    if (currentQuadrant === newQuadrant) return;
+
+    try {
+      await updateTodoPriority({ taskId, priority: newQuadrant });
+      toast({
+        title: "Task moved",
+        description: eisenhowerMessages.quadrants[newQuadrant].title,
+        duration: 2000,
+      });
+    } catch {
+      toast({
+        title: "Failed to move task",
+        description: "Please try again",
+        duration: 3000,
+      });
+    }
+  };
+
   return (
-    <div className="xl:px-40">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <h1 className="text-lg font-semibold md:text-2xl">
-          {eisenhowerMessages.title}
-        </h1>
-        <div className="flex items-center gap-2 flex-wrap">
-          <ProjectionSwitcher projectionKind="matrix" />
-          <AddTaskWrapper />
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="xl:px-40">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h1 className="text-lg font-semibold md:text-2xl">
+            {eisenhowerMessages.title}
+          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <ProjectionSwitcher projectionKind="matrix" />
+            <AddTaskWrapper />
+          </div>
         </div>
-      </div>
-      <p className="text-sm text-foreground/70 mt-2 mb-4">
-        {eisenhowerMessages.description}
-      </p>
-
-      {isLoading && (
-        <p className="text-sm text-foreground/60 mb-4">
-          {eisenhowerMessages.loading}
+        <p className="text-sm text-foreground/70 mt-2 mb-4">
+          {eisenhowerMessages.description}
         </p>
-      )}
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {EISENHOWER_QUADRANT_META.map(({ key }) => {
-          const items = quadrants[key];
-          return (
+        {isLoading && (
+          <p className="text-sm text-foreground/60 mb-4">
+            {eisenhowerMessages.loading}
+          </p>
+        )}
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {EISENHOWER_QUADRANT_META.map(({ key }) => (
             <DroppableQuadrant
               key={key}
               quadrantKey={key}
               title={eisenhowerMessages.quadrants[key].title}
               subtitle={eisenhowerMessages.quadrants[key].subtitle}
               emptyStateText={eisenhowerMessages.noTasks}
-              items={items}
+              items={quadrants[key]}
               labelsById={labelsById}
               onCheckTask={handleCheckTask}
             />
-          );
-        })}
+          ))}
+        </div>
       </div>
-    </div>
+
+      <DragOverlay>
+        {activeTask ? (
+          <div className="opacity-80 rounded-lg border bg-card shadow-lg">
+            <TaskCard
+              task={activeTask}
+              label={labelsById.get(activeTask.labelId) ?? null}
+              onCheck={() => {}}
+            />
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
