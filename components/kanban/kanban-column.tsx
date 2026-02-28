@@ -5,6 +5,7 @@ import QuickTaskInput from "../shared/quick-task-input";
 import { KanbanColumnKey } from "./metadata";
 import type { TodoStatus } from "@/lib/types/priority";
 import type { WorkflowStatus } from "@/lib/types/task-payload";
+import { useDroppable } from "@dnd-kit/core";
 
 const COLUMN_BADGE_STYLES: Record<KanbanColumnKey, string> = {
   TODO: "bg-blue-500/10 text-blue-700 dark:text-blue-300",
@@ -43,8 +44,18 @@ export default function KanbanColumn({
   emptyStateText?: string;
   items: Array<Doc<"todos">>;
 }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: column,
+  });
+
   return (
-    <section className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
+    <section
+      ref={setNodeRef}
+      className={cn(
+        "rounded-lg border bg-card p-4 text-card-foreground shadow-sm min-h-[200px] transition-colors",
+        isOver && "bg-primary/5 border-primary"
+      )}
+    >
       <div className="flex items-center justify-between border-b border-gray-100 pb-2">
         <div>
           <h2 className="text-base font-semibold">{title}</h2>
