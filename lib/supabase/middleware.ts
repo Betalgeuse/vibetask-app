@@ -66,35 +66,29 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  let user = null;
-  try {
+  // Only check auth for protected routes to minimize Supabase API calls (egress).
+  if (pathname.startsWith("/loggedin")) {
+    // Protected route: verify token server-side with getUser().
     const {
-      data: { user: authUser },
+      data: { user },
     } = await supabase.auth.getUser();
-    user = authUser;
-  } catch (error) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/";
 
-    if (pathname.startsWith("/loggedin")) {
-      redirectUrl.searchParams.set("error", "Please sign in again.");
+    if (!user) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/";
       return NextResponse.redirect(redirectUrl);
     }
+  } else if (pathname === "/") {
+    // Landing page: use getSession() (cookie-only, no API call) for redirect.
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    console.error("Failed to read Supabase user from session cookies:", error);
-    return response;
-  }
-
-  if (!user && pathname.startsWith("/loggedin")) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/";
-    return NextResponse.redirect(redirectUrl);
-  }
-
-  if (user && pathname === "/") {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/loggedin";
-    return NextResponse.redirect(redirectUrl);
+    if (session?.user) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/loggedin";
+      return NextResponse.redirect(redirectUrl);
+    }
   }
 
   return response;
